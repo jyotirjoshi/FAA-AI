@@ -9,8 +9,7 @@ class RagPipeline:
         self.retriever = retriever
         self.llm = llm
 
-    def answer(self, question: str) -> AnswerResult:
-        retrieved = self.retriever.retrieve(question)
+    def _build_answer_prompt(self, question: str, retrieved: list) -> tuple[str, list[dict]]:
         version_hint = build_query_version_hint(question)
         context_lines: list[str] = []
         citations: list[dict] = []
@@ -47,33 +46,16 @@ class RagPipeline:
             "- Do NOT say you cannot answer — always provide a complete, detailed response.\n"
             "- Use structured markdown with clear headings for multi-part answers."
         )
+        return prompt, citations
 
-        answer = self.llm.chat(prompt)
-        best = max((c["score"] for c in citations), default=0.0)
-        grounded = bool(answer and len(answer.strip()) > 20)
-
-        return AnswerResult(
-            answer=answer,
-            citations=citations,
-            confidence=min(float(best), 1.0),
-            grounded=grounded,
-        )
-
-    def compliance_plan(
+    def _build_compliance_prompt(
         self,
         renovation_request: str,
         tcds_text: str,
-        governing_body_hint: str | None = None,
-    ) -> AnswerResult:
+        governing_body_hint: str | None,
+        retrieved: list,
+    ) -> tuple[str, list[dict]]:
         version_hint = build_query_version_hint(f"{renovation_request} {tcds_text}")
-        combined_query = (
-            f"Renovation request: {renovation_request}\n"
-            f"TCDS certification basis and aircraft model details: {tcds_text}\n"
-            "Find governing regulation body, applicable part, relevant sections, and effective/historical versions."
-        )
-
-        retrieved = self.retriever.retrieve(combined_query)
-
         context_lines: list[str] = []
         citations: list[dict] = []
         for idx, item in enumerate(retrieved, start=1):
@@ -114,14 +96,80 @@ class RagPipeline:
             "- For every claim backed by a retrieved snippet, attach [C#] citations.\n"
             "- Return response in structured markdown with headings: Governing Body, Applicable Parts, Candidate Sections, Effective Date Checks, Open Gaps, Draft Compliance Plan."
         )
+        return prompt, citations
 
-        answer = self.llm.chat(prompt)
+    # ── Async (used by FastAPI endpoints) ──
+
+    async def answer_async(self, question: str) -> AnswerResult:
+        retrieved = self.retriever.retrieve(question)
+        prompt, citations = self._build_answer_prompt(question, retrieved)
+        answer = await self.llm.chat_async(prompt)
         best = max((c["score"] for c in citations), default=0.0)
-        grounded = bool(answer and len(answer.strip()) > 20)
-
         return AnswerResult(
             answer=answer,
             citations=citations,
             confidence=min(float(best), 1.0),
-            grounded=grounded,
+            grounded=bool(answer and len(answer.strip()) > 20),
+        )
+
+    async def compliance_plan_async(
+        self,
+        renovation_request: str,
+        tcds_text: str,
+        governing_body_hint: str | None = None,
+    ) -> AnswerResult:
+        combined_query = (
+            f"Renovation request: {renovation_request}\n"
+            f"TCDS certification basis and aircraft model details: {tcds_text}\n"
+            "Find governing regulation body, applicable part, relevant sections, and effective/historical versions."
+        )
+        retrieved = self.retriever.retrieve(combined_query)
+        prompt, citations = self._build_compliance_prompt(
+            renovation_request, tcds_text, governing_body_hint, retrieved
+        )
+        answer = await self.llm.chat_async(prompt)
+        best = max((c["score"] for c in citations), default=0.0)
+        return AnswerResult(
+            answer=answer,
+            citations=citations,
+            confidence=min(float(best), 1.0),
+            grounded=bool(answer and len(answer.strip()) > 20),
+        )
+
+    # ── Sync wrappers (kept for backward compatibility) ──
+
+    def answer(self, question: str) -> AnswerResult:
+        retrieved = self.retriever.retrieve(question)
+        prompt, citations = self._build_answer_prompt(question, retrieved)
+        answer = self.llm.chat(prompt)
+        best = max((c["score"] for c in citations), default=0.0)
+        return AnswerResult(
+            answer=answer,
+            citations=citations,
+            confidence=min(float(best), 1.0),
+            grounded=bool(answer and len(answer.strip()) > 20),
+        )
+
+    def compliance_plan(
+        self,
+        renovation_request: str,
+        tcds_text: str,
+        governing_body_hint: str | None = None,
+    ) -> AnswerResult:
+        combined_query = (
+            f"Renovation request: {renovation_request}\n"
+            f"TCDS certification basis and aircraft model details: {tcds_text}\n"
+            "Find governing regulation body, applicable part, relevant sections, and effective/historical versions."
+        )
+        retrieved = self.retriever.retrieve(combined_query)
+        prompt, citations = self._build_compliance_prompt(
+            renovation_request, tcds_text, governing_body_hint, retrieved
+        )
+        answer = self.llm.chat(prompt)
+        best = max((c["score"] for c in citations), default=0.0)
+        return AnswerResult(
+            answer=answer,
+            citations=citations,
+            confidence=min(float(best), 1.0),
+            grounded=bool(answer and len(answer.strip()) > 20),
         )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 
@@ -43,6 +44,9 @@ _INTRO_PATTERNS = [
     r"^(Hello|Hi)[!,]?\s+(I('m| am)|my name is)[^.]*\.",
 ]
 
+# Per-call timeout (seconds). Two calls max = 2 × 25 = 50s, safely under nginx 60s limit.
+_CALL_TIMEOUT = 25
+
 
 def _is_refusal(text: str) -> bool:
     lower = text.lower()
@@ -69,25 +73,34 @@ class LLMClient:
         self.api_key = api_key
         self.model = model
 
-    def _call(self, messages: list[dict], client: httpx.Client) -> str:
+    async def _call_async(self, messages: list[dict], client: httpx.AsyncClient) -> str:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
         payload = {"model": self.model, "messages": messages, "temperature": 0.0}
         alt_messages = [
-            {**m, "content": [{"type": "text", "text": m["content"]}] if isinstance(m["content"], str) else m["content"]}
+            {
+                **m,
+                "content": [{"type": "text", "text": m["content"]}]
+                if isinstance(m["content"], str)
+                else m["content"],
+            }
             for m in messages
         ]
         alt_payload = {"model": self.model, "messages": alt_messages, "temperature": 0.0}
 
-        resp = client.post(f"{self.base_url}/chat/completions", json=payload, headers=headers)
+        resp = await client.post(
+            f"{self.base_url}/chat/completions", json=payload, headers=headers
+        )
         if resp.status_code >= 400:
-            resp = client.post(f"{self.base_url}/chat/completions", json=alt_payload, headers=headers)
+            resp = await client.post(
+                f"{self.base_url}/chat/completions", json=alt_payload, headers=headers
+            )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"].strip()
 
-    def chat(self, user_prompt: str) -> str:
+    async def chat_async(self, user_prompt: str) -> str:
         if not self.api_key:
             return "LLM_API_KEY is not configured."
 
@@ -96,8 +109,8 @@ class LLMClient:
             {"role": "user", "content": user_prompt},
         ]
 
-        with httpx.Client(timeout=60) as client:
-            answer = self._call(messages, client)
+        async with httpx.AsyncClient(timeout=_CALL_TIMEOUT) as client:
+            answer = await self._call_async(messages, client)
 
             # If the model refused, force a direct retry
             if _is_refusal(answer):
@@ -116,6 +129,22 @@ class LLMClient:
                         ),
                     },
                 ]
-                answer = self._call(messages, client)
+                answer = await self._call_async(messages, client)
 
         return _strip_intro(answer)
+
+    def chat(self, user_prompt: str) -> str:
+        """Sync wrapper — runs the async implementation in a new event loop if needed."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already inside an async context (FastAPI) — caller should use chat_async directly
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, self.chat_async(user_prompt))
+                return future.result(timeout=55)
+        else:
+            return asyncio.run(self.chat_async(user_prompt))

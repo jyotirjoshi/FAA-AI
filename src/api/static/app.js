@@ -191,12 +191,18 @@ async function send() {
 
   const typingEl = appendTypingIndicator();
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 55000);
+
   try {
     const res = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     let data;
     try {
@@ -211,9 +217,14 @@ async function send() {
     } else {
       replaceTypingWithAnswer(typingEl, data);
     }
-  } catch {
+  } catch (err) {
+    clearTimeout(timeoutId);
     typingEl.remove();
-    appendErrorMessage('Request failed. Check server logs.');
+    if (err.name === 'AbortError') {
+      appendErrorMessage('The request timed out — the model is taking too long. Please try again.');
+    } else {
+      appendErrorMessage('Request failed. Please try again.');
+    }
   } finally {
     setLoading(false);
   }

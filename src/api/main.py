@@ -49,7 +49,6 @@ def startup() -> None:
     try:
         store.load()
     except Exception:
-        # API can still start; endpoints will retry load and return a clear error if needed.
         pass
 
 
@@ -64,14 +63,14 @@ def home(request: Request):
 
 
 @app.post("/chat")
-def chat(payload: ChatRequest) -> dict:
+async def chat(payload: ChatRequest) -> dict:
     logger.info("QUESTION: %s", payload.question)
     try:
         ensure_index_loaded()
         retriever = Retriever(store)
         llm = LLMClient()
         pipeline = RagPipeline(retriever, llm)
-        result = pipeline.answer(payload.question)
+        result = await pipeline.answer_async(payload.question)
         return {
             "answer": result.answer,
             "citations": result.citations,
@@ -82,7 +81,7 @@ def chat(payload: ChatRequest) -> dict:
     except Exception as exc:
         traceback.print_exc()
         return {
-            "answer": "I cannot answer right now because the model request failed. Check API key/base URL/model settings.",
+            "answer": "The model request failed. Please try again.",
             "citations": [],
             "confidence": 0.0,
             "grounded": False,
@@ -91,13 +90,13 @@ def chat(payload: ChatRequest) -> dict:
 
 
 @app.post("/compliance-plan")
-def compliance_plan(payload: CompliancePlanRequest) -> dict:
+async def compliance_plan(payload: CompliancePlanRequest) -> dict:
     try:
         ensure_index_loaded()
         retriever = Retriever(store)
         llm = LLMClient()
         pipeline = RagPipeline(retriever, llm)
-        result = pipeline.compliance_plan(
+        result = await pipeline.compliance_plan_async(
             renovation_request=payload.renovation_request,
             tcds_text=payload.tcds_text,
             governing_body_hint=payload.governing_body_hint,
@@ -112,7 +111,7 @@ def compliance_plan(payload: CompliancePlanRequest) -> dict:
     except Exception as exc:
         traceback.print_exc()
         return {
-            "answer": "I cannot build a compliance plan right now because the model request failed. Check API key/base URL/model settings.",
+            "answer": "The compliance plan request failed. Please try again.",
             "citations": [],
             "confidence": 0.0,
             "grounded": False,
