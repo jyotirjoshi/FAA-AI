@@ -17,7 +17,7 @@ from src.rag.retriever import Retriever
 
 logger = logging.getLogger("faa_ai")
 
-app = FastAPI(title="FAA/TC Regulations Chatbot", version="1.0.0")
+app = FastAPI(title="AirWise — Aviation Regulations", version="1.0.0")
 
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")

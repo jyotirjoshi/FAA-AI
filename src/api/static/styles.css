@@ -135,11 +135,18 @@ body {
   gap: 12px;
 }
 
+.empty-state-greeting {
+  font-size: 1.1rem;
+  color: var(--ink-muted);
+  margin-bottom: 16px;
+}
+
 .empty-icon { font-size: 3rem; line-height: 1; }
 
 .empty-state h1 {
-  font-size: 1.4rem;
+  font-size: 1.8rem;
   font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .empty-state p {

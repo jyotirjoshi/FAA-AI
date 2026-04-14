@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     top_k: int = 8
-    min_relevance: float = 0.35
+    min_relevance: float = 0.20
 
     max_pages_per_source: int = 1200
     request_timeout_seconds: int = 20
