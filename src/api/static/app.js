@@ -51,16 +51,6 @@ newChatBtn.addEventListener('click', () => {
   overlay.classList.remove('open');
 });
 
-// ── Suggestion chips ──
-document.querySelectorAll('.suggestion-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    questionInput.value = chip.dataset.q;
-    questionInput.style.height = 'auto';
-    questionInput.style.height = Math.min(questionInput.scrollHeight, 160) + 'px';
-    send();
-  });
-});
-
 // ── Send on Enter (Shift+Enter = newline) ──
 questionInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {

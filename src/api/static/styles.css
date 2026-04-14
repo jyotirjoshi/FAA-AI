@@ -155,30 +155,6 @@ body {
   line-height: 1.6;
 }
 
-.suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-.suggestion-chip {
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--card-bg);
-  color: var(--ink);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
-}
-
-.suggestion-chip:hover {
-  border-color: var(--accent);
-  background: #eff6ff;
-  color: var(--accent);
-}
 
 /* ── Thread ── */
 .thread {
@@ -419,7 +395,6 @@ body {
 
 .new-chat-btn:focus-visible,
 .send-btn:focus-visible,
-.suggestion-chip:focus-visible,
 .citations-toggle:focus-visible,
 .hamburger:focus-visible {
   outline: 2px solid var(--accent);
