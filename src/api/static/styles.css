@@ -77,14 +77,6 @@ body {
 
 .new-chat-btn:hover { background: var(--accent-hover); }
 
-.source-badge {
-  font-size: 0.75rem;
-  color: var(--ink-muted);
-  padding: 8px 10px;
-  background: var(--bg);
-  border-radius: 8px;
-  line-height: 1.5;
-}
 
 /* ── Main column ── */
 .main {
