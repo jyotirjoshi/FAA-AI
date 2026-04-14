@@ -34,10 +34,15 @@
 
       <div class="chat-area" id="chatArea">
         <div class="empty-state" id="emptyState">
-        <div class="empty-state-greeting">Good afternoon, what do you need help with?</div>
           <div class="empty-icon">✈</div>
           <h1>AirWise</h1>
+          <div class="empty-state-greeting">Good afternoon, what do you need help with?</div>
           <p>Aviation regulations assistant.</p>
+          <div class="suggestions">
+            <button class="suggestion-chip" data-q="Provide the exact regulatory text for 14 CFR 25.562 including dynamic seat testing requirements.">14 CFR 25.562 dynamic seat testing</button>
+            <button class="suggestion-chip" data-q="Explain the difference between FAR 25.853 and AC 25.853 regarding material flammability compliance.">FAR 25.853 vs AC 25.853 flammability</button>
+            <button class="suggestion-chip" data-q="Which sections of Part 25 define emergency evacuation demonstration requirements for cabin layout changes?">Part 25 emergency evacuation requirements</button>
+          </div>
         </div>
         <div class="thread" id="thread"></div>
       </div>
