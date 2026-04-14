@@ -1,0 +1,28 @@
+# data/index/ is intentionally tracked in git (36 MB, under 50 MB Railway limit)
+# If the index grows > 50 MB, add data/index/ here and use a Railway Volume instead
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Private PDF documents — do not commit to public repos
+fwdnosubject (1)/
+OneDrive_2026-03-20/

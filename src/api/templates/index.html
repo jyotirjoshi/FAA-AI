@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RegChat — FAA/TC Regulations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="layout">
+
+    <aside class="sidebar" id="sidebar" aria-label="Navigation">
+      <div class="sidebar-top">
+        <div class="brand">
+          <div class="brand-icon">✈</div>
+          <span class="brand-name">RegChat</span>
+        </div>
+        <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="source-badge">FAA Part 25 · CAR 525 · ACs</div>
+      </div>
+    </aside>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="main">
+      <header class="mobile-header">
+        <button class="hamburger" id="hamburger" aria-label="Menu">&#9776;</button>
+        <span class="brand-name">RegChat</span>
+      </header>
+
+      <div class="chat-area" id="chatArea">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">✈</div>
+          <h1>Ask a regulation question</h1>
+          <p>Answers grounded in FAA Part 25, CAR 525, and Advisory Circulars.</p>
+          <div class="suggestions">
+            <button class="suggestion-chip" data-q="What are the structural requirements for passenger seats under FAR Part 25?">Passenger seat structural requirements</button>
+            <button class="suggestion-chip" data-q="What does CAR 525 say about emergency exit lighting?">Emergency exit lighting in CAR 525</button>
+            <button class="suggestion-chip" data-q="What Advisory Circulars cover cabin interior flammability requirements?">Cabin interior flammability ACs</button>
+          </div>
+        </div>
+        <div class="thread" id="thread"></div>
+      </div>
+
+      <div class="input-bar">
+        <div class="input-wrap">
+          <textarea id="questionInput" placeholder="Ask a regulation question…" rows="1"></textarea>
+          <button class="send-btn" id="sendBtn" aria-label="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <p class="input-hint">Enter to send · Shift+Enter for new line</p>
+      </div>
+    </div>
+
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
