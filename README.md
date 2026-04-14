@@ -30,9 +30,9 @@ The system is retrieval-augmented generation (RAG) with strict citation output a
 
 No LLM system can guarantee literal 100% correctness in all cases. This implementation is designed to maximize reliability by:
 
-- Restricting answers to retrieved evidence only
-- Returning "cannot answer with sufficient certainty" when evidence is weak
-- Returning explicit source citations for every answer
+- Using retrieved context as the primary source, supplemented by regulatory knowledge
+- Always returning a complete, detailed answer — never refusing to answer
+- Returning explicit source citations for every claim backed by retrieved context
 - Using deterministic generation (`temperature=0`)
 
 ## Setup
