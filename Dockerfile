@@ -11,6 +11,10 @@ WORKDIR $HOME/app
 COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download the embedding model so the container doesn't need network access at runtime.
+# This avoids HF Hub rate-limit (429) errors on cold starts.
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+
 COPY --chown=user . .
 
 EXPOSE 7860
