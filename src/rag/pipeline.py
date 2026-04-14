@@ -55,7 +55,7 @@ class RagPipeline:
         return AnswerResult(
             answer=answer,
             citations=citations,
-            confidence=float(best),
+            confidence=min(float(best), 1.0),
             grounded=grounded,
         )
 
@@ -127,6 +127,6 @@ class RagPipeline:
         return AnswerResult(
             answer=answer,
             citations=citations,
-            confidence=float(best),
+            confidence=min(float(best), 1.0),
             grounded=grounded,
         )
