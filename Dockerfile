@@ -19,4 +19,5 @@ COPY --chown=user . .
 
 EXPOSE 7860
 
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
+# PORT is set by Render at runtime; falls back to 7860 for HF Spaces.
+CMD uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-7860}

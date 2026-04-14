@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: faa-ai
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: AI_GAMMA4_KEY
+        sync: false
+      - key: AI_GAMMA4_BASE_URL
+        sync: false
+      - key: AI_GAMMA4_MODEL
+        sync: false
+      - key: HF_TOKEN
+        sync: false
