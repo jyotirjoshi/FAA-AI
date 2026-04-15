@@ -62,6 +62,11 @@ def _strip_intro(text: str) -> str:
     return text
 
 
+def _looks_like_nvapi_model(model: str) -> bool:
+    lowered = (model or "").lower()
+    return any(token in lowered for token in ["meta/llama", "llama-4", "maverick"])
+
+
 class LLMClient:
     def __init__(self) -> None:
         base_url = (
@@ -101,6 +106,21 @@ class LLMClient:
             api_key = litai_key
             if litai_model:
                 model = litai_model
+
+        # Legacy Lightning endpoints should not win when the configured model is clearly NVAPI-based.
+        elif "lightning.ai" in base_url.lower() and api_key and _looks_like_nvapi_model(model):
+            base_url = nvapi_base_url or "https://integrate.api.nvidia.com/v1"
+
+        # If the base URL is still a legacy Lightning endpoint, prefer the newer providers instead.
+        elif "lightning.ai" in base_url.lower():
+            if hf_token:
+                base_url = hf_base_url or "https://router.huggingface.co/v1"
+                api_key = hf_token
+                model = hf_model or _HF_DEFAULT_MODEL
+            elif api_key and _looks_like_nvapi_model(model):
+                base_url = nvapi_base_url or "https://integrate.api.nvidia.com/v1"
+            else:
+                base_url = nvapi_base_url or base_url
 
         # If standard LLM key is not configured but HF token is, use HF Router automatically.
         if (not api_key) and hf_token:
