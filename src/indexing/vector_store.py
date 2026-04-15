@@ -13,20 +13,29 @@ class LocalVectorStore:
     def __init__(self, index_dir: Path):
         self.index_dir = index_dir
         self.index_dir.mkdir(parents=True, exist_ok=True)
-        # Pass HF_TOKEN so authenticated downloads work on HF Spaces
-        # (avoids 429 rate-limit on the builder/runtime IP).
-        hf_token = os.environ.get("HF_TOKEN") or None
-        self.embedding_model = SentenceTransformer(settings.embedding_model, token=hf_token)
 
         self.emb_path = self.index_dir / "embeddings.npy"
         self.meta_path = self.index_dir / "chunks.jsonl"
 
         self.embeddings: np.ndarray | None = None
         self.chunks: list[Chunk] = []
+        self._embedding_model: SentenceTransformer | None = None
+
+    @property
+    def embedding_model(self) -> SentenceTransformer:
+        """Lazy-load the embedding model on first use so app starts instantly."""
+        if self._embedding_model is None:
+            hf_token = os.environ.get("HF_TOKEN") or None
+            self._embedding_model = SentenceTransformer(
+                settings.embedding_model, token=hf_token
+            )
+        return self._embedding_model
 
     def build(self, chunks: list[Chunk]) -> None:
         texts = [c.text for c in chunks]
-        embeddings = self.embedding_model.encode(texts, show_progress_bar=True, normalize_embeddings=True)
+        embeddings = self.embedding_model.encode(
+            texts, show_progress_bar=True, normalize_embeddings=True
+        )
         self.embeddings = np.asarray(embeddings, dtype=np.float32)
         self.chunks = chunks
         np.save(self.emb_path, self.embeddings)
