@@ -73,9 +73,9 @@ NVAPI_BASE_URL=https://integrate.api.nvidia.com/v1
 
 Provider precedence in runtime:
 1. `NVAPI_KEY`
-2. `LITAI_API_KEY`
+2. `ANTHROPIC_API_KEY`
 3. `HF_TOKEN` / `HF_API_TOKEN`
-4. `ANTHROPIC_API_KEY`
+4. `LITAI_API_KEY`
 5. `AI_GAMMA4_KEY` / `LLM_API_KEY`
 
 ## Build the index

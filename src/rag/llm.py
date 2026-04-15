@@ -188,16 +188,6 @@ class LLMClient:
                 )
             )
 
-        if hf_token:
-            providers.append(
-                (
-                    "hf",
-                    hf_base_url or "https://router.huggingface.co/v1",
-                    hf_token,
-                    hf_model or _HF_DEFAULT_MODEL,
-                )
-            )
-
         if anthropic_key:
             providers.append(
                 (
@@ -205,6 +195,16 @@ class LLMClient:
                     anthropic_base_url or "https://api.anthropic.com",
                     anthropic_key,
                     anthropic_model or _ANTHROPIC_DEFAULT_MODEL,
+                )
+            )
+
+        if hf_token:
+            providers.append(
+                (
+                    "hf",
+                    hf_base_url or "https://router.huggingface.co/v1",
+                    hf_token,
+                    hf_model or _HF_DEFAULT_MODEL,
                 )
             )
 
