@@ -51,6 +51,7 @@ pip install -r requirements.txt
 - or Hugging Face Router: `HF_TOKEN` (or `HF_API_TOKEN`), optional `HF_MODEL`, optional `HF_API_BASE_URL`
 - or NVIDIA API: `NVAPI_KEY`, optional `NVAPI_MODEL`, optional `NVAPI_BASE_URL`
 - or LitAI-compatible route: `LITAI_API_KEY`, optional `LITAI_MODEL`, optional `LITAI_BASE_URL`
+- or Anthropic API: `ANTHROPIC_API_KEY`, optional `ANTHROPIC_MODEL`, optional `ANTHROPIC_BASE_URL`
 
 Example for Hugging Face Router:
 
@@ -73,8 +74,9 @@ NVAPI_BASE_URL=https://integrate.api.nvidia.com/v1
 Provider precedence in runtime:
 1. `NVAPI_KEY`
 2. `LITAI_API_KEY`
-3. `AI_GAMMA4_KEY` / `LLM_API_KEY`
-4. `HF_TOKEN` / `HF_API_TOKEN`
+3. `HF_TOKEN` / `HF_API_TOKEN`
+4. `ANTHROPIC_API_KEY`
+5. `AI_GAMMA4_KEY` / `LLM_API_KEY`
 
 ## Build the index
 

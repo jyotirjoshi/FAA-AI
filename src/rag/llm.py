@@ -46,6 +46,7 @@ _INTRO_PATTERNS = [
 
 _HF_DEFAULT_MODEL = "Qwen/Qwen2.5-72B-Instruct"
 _NV_DEFAULT_MODEL = "meta/llama-4-maverick-17b-128e-instruct"
+_ANTHROPIC_DEFAULT_MODEL = "claude-3-5-sonnet-latest"
 
 # Per-call timeout (seconds). Two calls max = 2 × 25 = 50s, safely under nginx 60s limit.
 _CALL_TIMEOUT = 25
@@ -92,6 +93,10 @@ class LLMClient:
         )
         hf_base_url = settings.hf_api_base_url or os.getenv("HF_API_BASE_URL", "")
         hf_model = settings.hf_model or os.getenv("HF_MODEL", "")
+
+        anthropic_key = settings.anthropic_api_key or os.getenv("ANTHROPIC_API_KEY", "")
+        anthropic_base_url = settings.anthropic_base_url or os.getenv("ANTHROPIC_BASE_URL", "")
+        anthropic_model = settings.anthropic_model or os.getenv("ANTHROPIC_MODEL", "")
 
         # Highest precedence: explicit NVAPI key.
         if nvapi_key:
@@ -144,6 +149,9 @@ class LLMClient:
             hf_base_url=hf_base_url,
             hf_token=hf_token,
             hf_model=hf_model,
+            anthropic_base_url=anthropic_base_url,
+            anthropic_key=anthropic_key,
+            anthropic_model=anthropic_model,
             litai_base_url=litai_base_url,
             litai_key=litai_key,
             litai_model=litai_model,
@@ -161,6 +169,9 @@ class LLMClient:
         hf_base_url: str,
         hf_token: str,
         hf_model: str,
+        anthropic_base_url: str,
+        anthropic_key: str,
+        anthropic_model: str,
         litai_base_url: str,
         litai_key: str,
         litai_model: str,
@@ -184,6 +195,16 @@ class LLMClient:
                     hf_base_url or "https://router.huggingface.co/v1",
                     hf_token,
                     hf_model or _HF_DEFAULT_MODEL,
+                )
+            )
+
+        if anthropic_key:
+            providers.append(
+                (
+                    "anthropic",
+                    anthropic_base_url or "https://api.anthropic.com",
+                    anthropic_key,
+                    anthropic_model or _ANTHROPIC_DEFAULT_MODEL,
                 )
             )
 
@@ -248,10 +269,14 @@ class LLMClient:
         messages: list[dict],
         client: httpx.AsyncClient,
         *,
+        provider_name: str,
         base_url: str,
         api_key: str,
         model: str,
     ) -> str:
+        if provider_name == "anthropic":
+            return await self._call_anthropic_async(messages, client, base_url=base_url, api_key=api_key, model=model)
+
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -283,6 +308,58 @@ class LLMClient:
 
         raise RuntimeError(f"All LLM endpoints failed for base URL '{self.base_url}'.") from last_error
 
+    async def _call_anthropic_async(
+        self,
+        messages: list[dict],
+        client: httpx.AsyncClient,
+        *,
+        base_url: str,
+        api_key: str,
+        model: str,
+    ) -> str:
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+
+        system_text = "\n\n".join(
+            str(m.get("content", "")) for m in messages if m.get("role") == "system"
+        ).strip()
+        user_turns = [m for m in messages if m.get("role") in {"user", "assistant"}]
+        if not user_turns:
+            user_turns = [{"role": "user", "content": "Please answer the question directly."}]
+
+        anth_messages = [
+            {
+                "role": "assistant" if m["role"] == "assistant" else "user",
+                "content": [{"type": "text", "text": str(m.get("content", ""))}],
+            }
+            for m in user_turns
+        ]
+
+        payload = {
+            "model": model,
+            "max_tokens": 1200,
+            "temperature": 0.0,
+            "messages": anth_messages,
+        }
+        if system_text:
+            payload["system"] = system_text
+
+        resp = await client.post(f"{base_url.rstrip('/')}/v1/messages", json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data.get("content") or []
+        text_parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text" and item.get("text"):
+                text_parts.append(str(item["text"]))
+        answer = "\n".join(text_parts).strip()
+        if not answer:
+            raise RuntimeError("Anthropic response did not include textual content.")
+        return answer
+
     async def chat_async(self, user_prompt: str) -> str:
         if not self.api_key:
             return (
@@ -302,6 +379,7 @@ class LLMClient:
                     answer = await self._call_async(
                         messages,
                         client,
+                        provider_name=provider_name,
                         base_url=base_url,
                         api_key=api_key,
                         model=model,
@@ -327,6 +405,7 @@ class LLMClient:
                         answer = await self._call_async(
                             retry_messages,
                             client,
+                            provider_name=provider_name,
                             base_url=base_url,
                             api_key=api_key,
                             model=model,

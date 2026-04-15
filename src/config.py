@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     litai_api_key: str = ""
     litai_model: str = ""
 
+    anthropic_base_url: str = "https://api.anthropic.com"
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-3-5-sonnet-latest"
+
     hf_api_base_url: str = "https://router.huggingface.co/v1"
     hf_api_token: str = ""
     hf_model: str = ""
