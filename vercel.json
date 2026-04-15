@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "framework": null,
+  "outputDirectory": "public",
+  "buildCommand": "",
+  "installCommand": "",
   "rewrites": [
     {
       "source": "/chat",
