@@ -1,19 +1,17 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/$1"
+      "source": "/chat",
+      "destination": "https://aibizlaunchpad-airwise.hf.space/chat"
     },
     {
-      "src": "/(.*)",
-      "dest": "api/index.py"
+      "source": "/compliance-plan",
+      "destination": "https://aibizlaunchpad-airwise.hf.space/compliance-plan"
+    },
+    {
+      "source": "/health",
+      "destination": "https://aibizlaunchpad-airwise.hf.space/health"
     }
   ]
 }
