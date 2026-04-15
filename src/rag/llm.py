@@ -44,6 +44,9 @@ _INTRO_PATTERNS = [
     r"^(Hello|Hi)[!,]?\s+(I('m| am)|my name is)[^.]*\.",
 ]
 
+_HF_DEFAULT_MODEL = "Qwen/Qwen2.5-72B-Instruct"
+_NV_DEFAULT_MODEL = "meta/llama-4-maverick-17b-128e-instruct"
+
 # Per-call timeout (seconds). Two calls max = 2 × 25 = 50s, safely under nginx 60s limit.
 _CALL_TIMEOUT = 25
 
@@ -69,9 +72,89 @@ class LLMClient:
         api_key = settings.ai_gamma4_key or os.getenv("AI_GAMMA4_KEY", "") or settings.llm_api_key
         model = settings.ai_gamma4_model or os.getenv("AI_GAMMA4_MODEL", "") or settings.llm_model
 
+        nvapi_key = settings.nvapi_key or os.getenv("NVAPI_KEY", "")
+        nvapi_base_url = settings.nvapi_base_url or os.getenv("NVAPI_BASE_URL", "")
+        nvapi_model = settings.nvapi_model or os.getenv("NVAPI_MODEL", "")
+
+        litai_key = settings.litai_api_key or os.getenv("LITAI_API_KEY", "")
+        litai_base_url = settings.litai_base_url or os.getenv("LITAI_BASE_URL", "")
+        litai_model = settings.litai_model or os.getenv("LITAI_MODEL", "")
+
+        hf_token = (
+            settings.hf_api_token
+            or os.getenv("HF_API_TOKEN", "")
+            or os.getenv("HF_TOKEN", "")
+        )
+        hf_base_url = settings.hf_api_base_url or os.getenv("HF_API_BASE_URL", "")
+        hf_model = settings.hf_model or os.getenv("HF_MODEL", "")
+
+        # Highest precedence: explicit NVAPI key.
+        if nvapi_key:
+            base_url = nvapi_base_url or "https://integrate.api.nvidia.com/v1"
+            api_key = nvapi_key
+            model = nvapi_model or _NV_DEFAULT_MODEL
+
+        # Optional generic LitAI-compatible config (if user routes through OpenAI-compatible base URL).
+        elif litai_key:
+            if litai_base_url:
+                base_url = litai_base_url
+            api_key = litai_key
+            if litai_model:
+                model = litai_model
+
+        # If standard LLM key is not configured but HF token is, use HF Router automatically.
+        if (not api_key) and hf_token:
+            base_url = hf_base_url or "https://router.huggingface.co/v1"
+            api_key = hf_token
+            model = hf_model or _HF_DEFAULT_MODEL
+
+        # Tolerate accidental spaces around separators in model ids.
+        model = (model or "").replace(" / ", "/").replace(" /", "/").replace("/ ", "/").strip()
+
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
+
+    @property
+    def _endpoints(self) -> list[str]:
+        # Support both bases that already include /v1 and ones that don't.
+        if self.base_url.endswith("/v1"):
+            return [f"{self.base_url}/chat/completions", f"{self.base_url}/completions"]
+        return [
+            f"{self.base_url}/chat/completions",
+            f"{self.base_url}/v1/chat/completions",
+            f"{self.base_url}/completions",
+            f"{self.base_url}/v1/completions",
+        ]
+
+    def _extract_text(self, data: dict) -> str:
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("LLM response did not include choices.")
+
+        first = choices[0] or {}
+        message = first.get("message") or {}
+        content = message.get("content")
+
+        if isinstance(content, str):
+            return content.strip()
+
+        # Some providers return an array of content parts.
+        if isinstance(content, list):
+            text_parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text" and item.get("text"):
+                    text_parts.append(str(item["text"]))
+            joined = "\n".join(text_parts).strip()
+            if joined:
+                return joined
+
+        # Legacy completion-style fallback.
+        text = first.get("text")
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+
+        raise RuntimeError("LLM response did not include textual content.")
 
     async def _call_async(self, messages: list[dict], client: httpx.AsyncClient) -> str:
         headers = {
@@ -90,19 +173,27 @@ class LLMClient:
         ]
         alt_payload = {"model": self.model, "messages": alt_messages, "temperature": 0.0}
 
-        resp = await client.post(
-            f"{self.base_url}/chat/completions", json=payload, headers=headers
-        )
-        if resp.status_code >= 400:
-            resp = await client.post(
-                f"{self.base_url}/chat/completions", json=alt_payload, headers=headers
-            )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+        last_error: Exception | None = None
+
+        for url in self._endpoints:
+            try:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code >= 400:
+                    resp = await client.post(url, json=alt_payload, headers=headers)
+                resp.raise_for_status()
+                return self._extract_text(resp.json())
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                continue
+
+        raise RuntimeError(f"All LLM endpoints failed for base URL '{self.base_url}'.") from last_error
 
     async def chat_async(self, user_prompt: str) -> str:
         if not self.api_key:
-            return "LLM_API_KEY is not configured."
+            return (
+                "LLM is not configured. Set one of: "
+                "NVAPI_KEY, AI_GAMMA4_KEY, LLM_API_KEY, LITAI_API_KEY, or HF_TOKEN/HF_API_TOKEN."
+            )
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -112,8 +203,8 @@ class LLMClient:
         async with httpx.AsyncClient(timeout=_CALL_TIMEOUT) as client:
             answer = await self._call_async(messages, client)
 
-            # If the model refused, force a direct retry
-            if _is_refusal(answer):
+            # If the model refused or produced an empty response, force a direct retry.
+            if _is_refusal(answer) or len(answer.strip()) < 24:
                 messages = [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
@@ -131,7 +222,8 @@ class LLMClient:
                 ]
                 answer = await self._call_async(messages, client)
 
-        return _strip_intro(answer)
+        cleaned = _strip_intro(answer)
+        return cleaned if cleaned else "I could not generate a usable answer for this query."
 
     def chat(self, user_prompt: str) -> str:
         """Sync wrapper — runs the async implementation in a new event loop if needed."""

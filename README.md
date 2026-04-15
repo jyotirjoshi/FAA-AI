@@ -48,6 +48,33 @@ pip install -r requirements.txt
 
 - `AI_GAMMA4_KEY`, `AI_GAMMA4_BASE_URL`, `AI_GAMMA4_MODEL`
 - or `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`
+- or Hugging Face Router: `HF_TOKEN` (or `HF_API_TOKEN`), optional `HF_MODEL`, optional `HF_API_BASE_URL`
+- or NVIDIA API: `NVAPI_KEY`, optional `NVAPI_MODEL`, optional `NVAPI_BASE_URL`
+- or LitAI-compatible route: `LITAI_API_KEY`, optional `LITAI_MODEL`, optional `LITAI_BASE_URL`
+
+Example for Hugging Face Router:
+
+```bash
+HF_TOKEN=hf_xxx
+HF_MODEL=Qwen/Qwen2.5-72B-Instruct
+HF_API_BASE_URL=https://router.huggingface.co/v1
+```
+
+If `LLM_API_KEY`/`AI_GAMMA4_KEY` is not set, the app automatically falls back to Hugging Face when `HF_TOKEN` is present.
+
+NVIDIA example:
+
+```bash
+NVAPI_KEY=nvapi_xxx
+NVAPI_MODEL=meta/llama-4-maverick-17b-128e-instruct
+NVAPI_BASE_URL=https://integrate.api.nvidia.com/v1
+```
+
+Provider precedence in runtime:
+1. `NVAPI_KEY`
+2. `LITAI_API_KEY`
+3. `AI_GAMMA4_KEY` / `LLM_API_KEY`
+4. `HF_TOKEN` / `HF_API_TOKEN`
 
 ## Build the index
 

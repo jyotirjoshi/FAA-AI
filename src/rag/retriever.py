@@ -139,4 +139,10 @@ class Retriever:
             scored.append(RetrievedChunk(chunk=item.chunk, score=adjusted))
 
         scored.sort(key=lambda item: item.score, reverse=True)
-        return [r for r in scored[:k] if r.score >= settings.min_relevance]
+        filtered = [r for r in scored[:k] if r.score >= settings.min_relevance]
+        if filtered:
+            return filtered
+
+        # Fallback: do not return empty context; keep best candidates for grounding.
+        fallback_count = min(max(4, k // 2), len(scored))
+        return scored[:fallback_count]

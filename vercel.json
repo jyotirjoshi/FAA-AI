@@ -7,15 +7,15 @@
   "rewrites": [
     {
       "source": "/chat",
-      "destination": "https://aibizlaunchpad-airwise.hf.space/chat"
+      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/chat"
     },
     {
       "source": "/compliance-plan",
-      "destination": "https://aibizlaunchpad-airwise.hf.space/compliance-plan"
+      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/compliance-plan"
     },
     {
       "source": "/health",
-      "destination": "https://aibizlaunchpad-airwise.hf.space/health"
+      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/health"
     }
   ]
 }
