@@ -7,23 +7,23 @@
   "rewrites": [
     {
       "source": "/sessions",
-      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/sessions"
+      "destination": "https://jyotir1-faa-ai.hf.space/sessions"
     },
     {
       "source": "/sessions/:path*",
-      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/sessions/:path*"
+      "destination": "https://jyotir1-faa-ai.hf.space/sessions/:path*"
     },
     {
       "source": "/chat",
-      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/chat"
+      "destination": "https://jyotir1-faa-ai.hf.space/chat"
     },
     {
       "source": "/compliance-plan",
-      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/compliance-plan"
+      "destination": "https://jyotir1-faa-ai.hf.space/compliance-plan"
     },
     {
       "source": "/health",
-      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/health"
+      "destination": "https://jyotir1-faa-ai.hf.space/health"
     }
   ]
 }
