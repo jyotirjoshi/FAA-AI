@@ -360,17 +360,20 @@ class LLMClient:
             raise RuntimeError("Anthropic response did not include textual content.")
         return answer
 
-    async def chat_async(self, user_prompt: str) -> str:
+    async def chat_async(self, user_prompt: str, history: list[dict] | None = None) -> str:
         if not self.api_key:
             return (
                 "LLM is not configured. Set one of: "
                 "NVAPI_KEY, AI_GAMMA4_KEY, LLM_API_KEY, LITAI_API_KEY, or HF_TOKEN/HF_API_TOKEN."
             )
 
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ]
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for turn in history or []:
+            role = turn.get("role", "user")
+            content = turn.get("content", "")
+            if role in {"user", "assistant"} and content:
+                messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": user_prompt})
 
         async with httpx.AsyncClient(timeout=_CALL_TIMEOUT) as client:
             last_error: Exception | None = None
