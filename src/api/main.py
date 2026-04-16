@@ -2,7 +2,8 @@ from pathlib import Path
 import logging
 import traceback
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -14,10 +15,18 @@ from src.indexing.vector_store import LocalVectorStore
 from src.rag.llm import LLMClient
 from src.rag.pipeline import RagPipeline
 from src.rag.retriever import Retriever
+import src.db as db
 
 logger = logging.getLogger("faa_ai")
 
 app = FastAPI(title="AirWise — Aviation Regulations", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -26,6 +35,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 class ChatRequest(BaseModel):
     question: str
+    session_id: str | None = None
     top_k: int | None = None
 
 
@@ -33,6 +43,7 @@ class CompliancePlanRequest(BaseModel):
     renovation_request: str
     tcds_text: str
     governing_body_hint: str | None = None
+    session_id: str | None = None
 
 
 store = LocalVectorStore(settings.index_dir)
@@ -45,11 +56,20 @@ def ensure_index_loaded() -> None:
 
 
 @app.on_event("startup")
-def startup() -> None:
+async def startup() -> None:
     try:
         store.load()
     except Exception:
         pass
+    try:
+        await db.get_pool()
+    except Exception:
+        logger.warning("Could not connect to database on startup — will retry on first request.")
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    await db.close_pool()
 
 
 @app.get("/health")
@@ -62,20 +82,74 @@ def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+# ── Session endpoints ──────────────────────────────────────────────────────────
+
+@app.post("/sessions")
+async def create_session() -> dict:
+    try:
+        session_id = await db.create_session()
+        return {"session_id": session_id}
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/sessions/{session_id}/history")
+async def get_history(session_id: str) -> dict:
+    try:
+        if not await db.session_exists(session_id):
+            raise HTTPException(status_code=404, detail="Session not found")
+        messages = await db.get_history(session_id, limit=50)
+        return {"session_id": session_id, "messages": messages}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Chat endpoint ──────────────────────────────────────────────────────────────
+
 @app.post("/chat")
 async def chat(payload: ChatRequest) -> dict:
     logger.info("QUESTION: %s", payload.question)
     try:
         ensure_index_loaded()
+
+        # Resolve or create session
+        session_id = payload.session_id
+        if session_id:
+            if not await db.session_exists(session_id):
+                session_id = await db.create_session()
+        else:
+            session_id = await db.create_session()
+
+        # Load conversation history for follow-up context (last 6 turns = 3 exchanges)
+        history = await db.get_history(session_id, limit=6)
+        # Pass only role+content to LLM (strip DB metadata)
+        llm_history = [{"role": m["role"], "content": m["content"]} for m in history]
+
         retriever = Retriever(store)
         llm = LLMClient()
         pipeline = RagPipeline(retriever, llm)
-        result = await pipeline.answer_async(payload.question)
+        result = await pipeline.answer_async(payload.question, history=llm_history)
+
+        # Persist both turns
+        await db.save_message(session_id, "user", payload.question)
+        await db.save_message(
+            session_id,
+            "assistant",
+            result.answer,
+            citations=result.citations,
+            confidence=result.confidence,
+        )
+
         return {
             "answer": result.answer,
             "citations": result.citations,
             "confidence": result.confidence,
             "grounded": result.grounded,
+            "session_id": session_id,
             "error": None,
         }
     except Exception as exc:
@@ -85,6 +159,7 @@ async def chat(payload: ChatRequest) -> dict:
             "citations": [],
             "confidence": 0.0,
             "grounded": False,
+            "session_id": payload.session_id,
             "error": str(exc),
         }
 

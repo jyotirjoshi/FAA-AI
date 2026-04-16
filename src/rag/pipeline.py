@@ -118,10 +118,14 @@ class RagPipeline:
 
     # ── Async (used by FastAPI endpoints) ──
 
-    async def answer_async(self, question: str) -> AnswerResult:
+    async def answer_async(
+        self,
+        question: str,
+        history: list[dict] | None = None,
+    ) -> AnswerResult:
         retrieved = self.retriever.retrieve(question)
         prompt, citations = self._build_answer_prompt(question, retrieved)
-        answer = await self.llm.chat_async(prompt)
+        answer = await self.llm.chat_async(prompt, history=history)
         best = max((c["score"] for c in citations), default=0.0)
         return AnswerResult(
             answer=answer,
