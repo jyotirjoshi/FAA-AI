@@ -6,6 +6,14 @@
   "installCommand": "",
   "rewrites": [
     {
+      "source": "/sessions",
+      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/sessions"
+    },
+    {
+      "source": "/sessions/:path*",
+      "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/sessions/:path*"
+    },
+    {
       "source": "/chat",
       "destination": "https://aibizlaunchpad-airwise-demov1.hf.space/chat"
     },
