@@ -267,53 +267,70 @@ body {
 .badge-confidence  { background: #f3f4f6; color: var(--ink-muted); }
 
 .citations-toggle {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 2px 10px;
-  font-size: 0.75rem;
-  color: var(--ink-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1px solid #93c5fd;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--accent);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: all 0.2s ease;
 }
 
-.citations-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.citations-toggle:hover {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+  transform: translateY(-1px);
+}
+
+.citations-toggle:active {
+  transform: translateY(0);
+}
 
 /* ── Citations panel ── */
 .citations-panel {
-  margin-top: 10px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   overflow: hidden;
   max-height: 0;
-  transition: max-height 0.3s ease;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.citations-panel.open { max-height: 2000px; }
+.citations-panel.open { max-height: 2400px; }
 
 .citation-card {
-  background: #f9fafb;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 0.82rem;
-  line-height: 1.5;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  transition: all 0.2s ease;
 }
 
 .citation-card-button {
   width: 100%;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  background: inherit;
+  border: inherit;
+  border-radius: inherit;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.citation-card-button:hover {
-  transform: translateY(-1px);
-  border-color: #bfdbfe;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+.citation-card-button:hover .citation-card {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
 }
 
 .citation-card-button:focus-visible {
@@ -326,33 +343,58 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.citation-card-header strong {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #f0f4ff;
+  border-radius: 6px;
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.citation-card-header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #fef3c7;
+  border-radius: 6px;
+  color: #92400e;
   font-size: 0.72rem;
-  color: var(--ink-muted);
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  letter-spacing: 0.02em;
 }
 
 .citation-card-title {
   font-weight: 600;
   color: var(--ink);
-  margin-bottom: 2px;
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
 
 .citation-card-section {
-  color: var(--accent);
-  font-size: 0.8rem;
-  margin-bottom: 6px;
+  display: inline-block;
+  padding: 2px 8px;
+  background: #ecfdf5;
+  color: #065f46;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .citation-card-excerpt {
-  color: var(--ink);
-  font-size: 0.8rem;
-  line-height: 1.55;
+  color: #4b5563;
+  font-size: 0.82rem;
+  line-height: 1.6;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  padding: 10px 0;
 }
 
 .citation-card strong { color: var(--ink); }
@@ -360,15 +402,19 @@ body {
 .citation-card a {
   color: var(--accent);
   text-decoration: none;
-  word-break: break-all;
+  word-break: break-word;
+  font-weight: 500;
 }
 
 .citation-card a:hover { text-decoration: underline; }
 
 .citation-score {
-  color: var(--ink-muted);
+  color: #9ca3af;
   font-size: 0.75rem;
-  margin-top: 2px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .citation-modal {
@@ -379,6 +425,12 @@ body {
   justify-content: center;
   z-index: 250;
   padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .citation-modal.open {
@@ -388,24 +440,37 @@ body {
 .citation-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(17, 24, 39, 0.58);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s ease;
 }
 
 .citation-modal-dialog {
   position: relative;
-  width: min(760px, 100%);
-  max-height: min(80vh, 820px);
+  width: min(820px, 100%);
+  max-height: min(90vh, 880px);
   overflow: hidden;
-  border-radius: 24px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e5e7eb;
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .citation-modal-body {
   position: relative;
-  padding: 26px;
+  padding: 32px;
   overflow-y: auto;
   max-height: inherit;
 }
@@ -413,81 +478,118 @@ body {
 .citation-modal-kicker {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #93c5fd;
 }
 
 .citation-modal-body h3 {
-  font-size: 1.2rem;
-  margin-bottom: 8px;
-  line-height: 1.35;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  line-height: 1.3;
+  color: var(--ink);
 }
 
 .citation-modal-meta {
-  color: var(--ink-muted);
-  font-size: 0.84rem;
-  line-height: 1.5;
-  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.citation-modal-meta > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .citation-modal-excerpt {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 18px 18px 20px;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 20px 22px;
   font-size: 0.95rem;
-  line-height: 1.75;
+  line-height: 1.8;
   color: var(--ink);
   white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .citation-modal-actions {
   display: flex;
+  gap: 12px;
   justify-content: flex-end;
-  margin-top: 18px;
+  margin-top: 24px;
 }
 
 .citation-modal-source {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 11px 20px;
   border-radius: 999px;
   background: var(--accent);
   color: #fff;
   text-decoration: none;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 600;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
 }
 
 .citation-modal-source:hover {
   background: var(--accent-hover);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+  transform: translateY(-2px);
+}
+
+.citation-modal-source:active {
+  transform: translateY(0);
 }
 
 .citation-modal-close {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 38px;
-  height: 38px;
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
+  background: #f3f4f6;
   color: var(--ink);
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .citation-modal-close:hover {
-  background: #fff;
+  background: #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.citation-modal-close:active {
+  background: #d1d5db;
 }
 
 body.modal-open {
