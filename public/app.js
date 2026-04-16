@@ -22,6 +22,8 @@ const hamburger     = document.getElementById('hamburger');
 const sidebar       = document.getElementById('sidebar');
 const overlay       = document.getElementById('overlay');
 
+let citationModal = null;
+
 let isLoading = false;
 
 // ── Auto-resize textarea ──
@@ -105,6 +107,73 @@ function appendTypingIndicator() {
   return msg;
 }
 
+function ensureCitationModal() {
+  if (citationModal) return citationModal;
+
+  citationModal = document.createElement('div');
+  citationModal.className = 'citation-modal';
+  citationModal.innerHTML = `
+    <div class="citation-modal-backdrop" data-close="true"></div>
+    <div class="citation-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="citationModalTitle">
+      <button class="citation-modal-close" type="button" aria-label="Close citation card">×</button>
+      <div class="citation-modal-body">
+        <div class="citation-modal-kicker">Citation Flash Card</div>
+        <h3 id="citationModalTitle"></h3>
+        <div class="citation-modal-meta"></div>
+        <div class="citation-modal-excerpt"></div>
+        <div class="citation-modal-actions">
+          <a class="citation-modal-source" target="_blank" rel="noopener">Open source</a>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(citationModal);
+
+  citationModal.addEventListener('click', event => {
+    if (event.target.matches('[data-close="true"], .citation-modal-close')) {
+      closeCitationModal();
+    }
+  });
+
+  return citationModal;
+}
+
+function openCitationModal(citation) {
+  const modal = ensureCitationModal();
+  modal.querySelector('#citationModalTitle').textContent = `${citation.id || 'Citation'} · ${citation.title || 'Section reference'}`;
+
+  const metaParts = [
+    citation.section_path ? citation.section_path : '',
+    citation.source ? `Source: ${citation.source}` : '',
+    citation.issue_date ? `Issue date: ${citation.issue_date}` : '',
+    typeof citation.score === 'number' ? `Relevance: ${citation.score.toFixed(3)}` : '',
+  ].filter(Boolean);
+
+  modal.querySelector('.citation-modal-meta').textContent = metaParts.join(' • ');
+
+  const excerpt = String(citation.excerpt || 'No excerpt available.');
+  modal.querySelector('.citation-modal-excerpt').textContent = excerpt;
+
+  const sourceLink = modal.querySelector('.citation-modal-source');
+  sourceLink.href = citation.url || '#';
+  sourceLink.textContent = citation.url ? 'Open source' : 'Source unavailable';
+  sourceLink.toggleAttribute('aria-disabled', !citation.url);
+  sourceLink.onclick = event => {
+    if (!citation.url) {
+      event.preventDefault();
+    }
+  };
+
+  modal.classList.add('open');
+  document.body.classList.add('modal-open');
+}
+
+function closeCitationModal() {
+  if (!citationModal) return;
+  citationModal.classList.remove('open');
+  document.body.classList.remove('modal-open');
+}
+
 function replaceTypingWithAnswer(typingEl, data) {
   const { answer, citations, confidence, grounded, error } = data;
   const pct = Math.round((confidence || 0) * 100);
@@ -121,11 +190,16 @@ function replaceTypingWithAnswer(typingEl, data) {
     : '';
 
   const citationCards = safeCitations.map(c => `
-    <div class="citation-card">
-      <strong>${escapeHtml(c.id || '')}</strong> ${escapeHtml(c.section_path || '')}<br>
-      <a href="${escapeHtml(c.url || '#')}" target="_blank" rel="noopener">${escapeHtml(c.url || '')}</a>
-      <div class="citation-score">Relevance: ${(c.score || 0).toFixed(3)}</div>
-    </div>`).join('');
+    <button class="citation-card citation-card-button" type="button" data-citation-id="${escapeHtml(c.id || '')}">
+      <div class="citation-card-header">
+        <strong>${escapeHtml(c.id || '')}</strong>
+        <span>Flash card</span>
+      </div>
+      <div class="citation-card-title">${escapeHtml(c.title || '')}</div>
+      <div class="citation-card-section">${escapeHtml(c.section_path || '')}</div>
+      <div class="citation-card-excerpt">${escapeHtml((c.excerpt || '').slice(0, 240))}${(c.excerpt || '').length > 240 ? '…' : ''}</div>
+      <div class="citation-score">Tap to view section card</div>
+    </button>`).join('');
 
   const errorBanner = error
     ? `<div class="error-banner">⚠ ${escapeHtml(String(error))}</div>`
@@ -156,6 +230,13 @@ function replaceTypingWithAnswer(typingEl, data) {
     });
   }
 
+  const citationButtons = typingEl.querySelectorAll('.citation-card-button');
+  citationButtons.forEach((button, index) => {
+    button.addEventListener('click', () => {
+      openCitationModal(safeCitations[index]);
+    });
+  });
+
   scrollToBottom();
 }
 
@@ -169,6 +250,12 @@ function appendErrorMessage(text) {
   thread.appendChild(msg);
   scrollToBottom();
 }
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    closeCitationModal();
+  }
+});
 
 // ── Main send function ──
 async function send() {

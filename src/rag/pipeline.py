@@ -4,6 +4,22 @@ from src.rag.retriever import Retriever
 from src.rag.versioning import build_query_version_hint
 
 
+def _build_excerpt(text: str, limit: int = 780) -> str:
+    cleaned = " ".join((text or "").split())
+    if not cleaned:
+        return ""
+
+    if len(cleaned) <= limit:
+        return cleaned
+
+    cut = cleaned.rfind(".", 0, limit)
+    if cut < max(180, limit // 2):
+        cut = cleaned.rfind(" ", 0, limit)
+    if cut < 0:
+        cut = limit
+    return cleaned[:cut].rstrip() + "..."
+
+
 class RagPipeline:
     def __init__(self, retriever: Retriever, llm: LLMClient):
         self.retriever = retriever
@@ -27,6 +43,7 @@ class RagPipeline:
                     "source": item.chunk.source_id,
                     "issue_date": item.chunk.issue_date,
                     "score": round(item.score, 4),
+                    "excerpt": _build_excerpt(item.chunk.text),
                 }
             )
 
@@ -72,6 +89,7 @@ class RagPipeline:
                     "source": item.chunk.source_id,
                     "issue_date": item.chunk.issue_date,
                     "score": round(item.score, 4),
+                    "excerpt": _build_excerpt(item.chunk.text),
                 }
             )
 
