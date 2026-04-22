@@ -21,6 +21,30 @@ function cleanText(raw) {
     .trim();
 }
 
+function formatIssueDate(raw) {
+  const text = cleanText(raw);
+  if (!text) return '';
+  const dt = new Date(text);
+  if (Number.isNaN(dt.getTime())) return text;
+  return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function isXmlLikeUrl(raw) {
+  const url = cleanText(raw).toLowerCase();
+  return Boolean(url) && (url.endsWith('.xml') || url.includes('.xml?') || url.includes('/full/'));
+}
+
+function preferredCitationUrl(citation) {
+  const candidate = cleanText(citation.url || '');
+  const sourceUrl = cleanText(citation.source_url || '');
+  const pageUrl = cleanText(citation.page_url || '');
+
+  if (candidate.startsWith('http') && !isXmlLikeUrl(candidate)) return candidate;
+  if (sourceUrl.startsWith('http')) return sourceUrl;
+  if (pageUrl.startsWith('http') && !isXmlLikeUrl(pageUrl)) return pageUrl;
+  return '';
+}
+
 // ── Session management ──
 let currentSessionId = localStorage.getItem('airwise_session_id') || null;
 
@@ -181,13 +205,17 @@ function openCitationModal(citation) {
 
   modal.querySelector('#citationModalTitle').textContent = citation.title || 'Section Reference';
 
+  const citationUrl = preferredCitationUrl(citation);
+  const issueDate = formatIssueDate(citation.issue_date);
   const metaRows = [
     citation.section_path ? ['Section',    cleanText(citation.section_path)] : null,
     citation.source       ? ['Source',     cleanText(citation.source)]       : null,
-    citation.issue_date   ? ['Issue Date', cleanText(citation.issue_date)]   : null,
+    citation.source_host  ? ['Authority',  cleanText(citation.source_host)]  : null,
+    issueDate             ? ['Issue Date', issueDate]                        : null,
     typeof citation.score === 'number'
       ? ['Relevance', `${(citation.score * 100).toFixed(0)}% match`]
       : null,
+    citationUrl ? ['Document', citationUrl] : null,
   ].filter(Boolean);
 
   modal.querySelector('.citation-modal-meta').innerHTML = metaRows.map(([label, value]) =>
@@ -200,13 +228,11 @@ function openCitationModal(citation) {
   modal.querySelector('.citation-modal-excerpt').textContent =
     cleanText(citation.excerpt) || 'No excerpt available.';
 
-  const rawUrl = cleanText(citation.url || '').replace(/\s/g, '');
-  const validUrl = rawUrl.startsWith('http') ? rawUrl : '';
   const sourceLink = modal.querySelector('.citation-modal-source');
-  sourceLink.href = validUrl || '#';
-  sourceLink.textContent = validUrl ? 'View Regulation' : 'Source Not Available';
-  sourceLink.style.opacity = validUrl ? '1' : '0.5';
-  sourceLink.style.pointerEvents = validUrl ? '' : 'none';
+  sourceLink.href = citationUrl || '#';
+  sourceLink.textContent = citationUrl ? 'Open Official Source' : 'Source Not Available';
+  sourceLink.style.opacity = citationUrl ? '1' : '0.5';
+  sourceLink.style.pointerEvents = citationUrl ? '' : 'none';
   sourceLink.onclick = null;
 
   modal.classList.add('open');
@@ -236,16 +262,19 @@ function replaceTypingWithAnswer(typingEl, data) {
 
   const citationCards = safeCitations.map((c, idx) => {
     const cleanExcerpt = cleanText(c.excerpt);
-    const excerptPreview = cleanExcerpt.slice(0, 260);
+    const excerptPreview = cleanExcerpt.slice(0, 420);
     const relevance = typeof c.score === 'number' ? (c.score * 100).toFixed(0) : 'N/A';
+    const issueDate = formatIssueDate(c.issue_date);
+    const sourceLabel = cleanText(c.source) || 'Regulatory Source';
     return `
     <button class="citation-card-button" type="button">
       <div class="citation-card">
         <div class="citation-card-ref">[${idx + 1}] ${escapeHtml(c.id || 'REF')}</div>
         <div class="citation-card-title">${escapeHtml(cleanText(c.title) || 'Untitled section')}</div>
         ${c.section_path ? `<div class="citation-card-section">${escapeHtml(cleanText(c.section_path))}</div>` : ''}
-        <div class="citation-card-excerpt">${escapeHtml(excerptPreview)}${cleanExcerpt.length > 260 ? '…' : ''}</div>
-        <div class="citation-score">${relevance}% relevance · click to view full text</div>
+        <div class="citation-card-meta">${escapeHtml(sourceLabel)}${issueDate ? ` · ${escapeHtml(issueDate)}` : ''}</div>
+        <div class="citation-card-excerpt">${escapeHtml(excerptPreview)}${cleanExcerpt.length > 420 ? '…' : ''}</div>
+        <div class="citation-score">${relevance}% relevance · click to view full details</div>
       </div>
     </button>`;
   }).join('');

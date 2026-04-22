@@ -330,7 +330,7 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
 }
 
 .citation-card-button:hover .citation-card {
@@ -353,8 +353,19 @@ body {
 }
 
 .citation-card-section {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
+  color: #0f4aa9;
+  background: #eaf2ff;
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  padding: 3px 10px;
+  width: fit-content;
+}
+
+.citation-card-meta {
+  font-size: 0.77rem;
   color: #6b7280;
+  letter-spacing: 0.01em;
 }
 
 .citation-card-excerpt {
@@ -362,7 +373,7 @@ body {
   font-size: 0.82rem;
   line-height: 1.6;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-top: 2px;

@@ -1,11 +1,20 @@
+import re
+from urllib.parse import urlparse
+
 from src.models import AnswerResult
 from src.rag.llm import LLMClient
 from src.rag.retriever import Retriever
 from src.rag.versioning import build_query_version_hint
 
 
-def _build_excerpt(text: str, limit: int = 780) -> str:
-    cleaned = " ".join((text or "").split())
+def _build_excerpt(text: str, limit: int = 2200) -> str:
+    lines = [re.sub(r"\s+", " ", line).strip() for line in (text or "").splitlines()]
+    lines = [line for line in lines if line]
+    cleaned = "\n".join(lines).strip()
+
+    if not cleaned:
+        cleaned = re.sub(r"\s+", " ", text or "").strip()
+
     if not cleaned:
         return ""
 
@@ -18,6 +27,78 @@ def _build_excerpt(text: str, limit: int = 780) -> str:
     if cut < 0:
         cut = limit
     return cleaned[:cut].rstrip() + "..."
+
+
+def _is_xmlish_url(url: str | None) -> bool:
+    if not url:
+        return False
+    lowered = url.lower()
+    return lowered.endswith(".xml") or ".xml?" in lowered or "/full/" in lowered
+
+
+def _humanize_source_id(source_id: str | None) -> str:
+    sid = (source_id or "").strip().lower()
+    if not sid:
+        return "Regulatory Source"
+    if sid.startswith("pdf_"):
+        return (source_id or "").strip()[4:].replace("_", " ")
+    if "faa_far_part25" in sid:
+        return "FAA FAR Part 25"
+    if "faa_ecfr" in sid:
+        return "FAA eCFR Title 14"
+    if "advisory" in sid:
+        return "FAA Advisory Circulars"
+    if "tc_car_525" in sid:
+        return "Transport Canada CAR 525"
+    return (source_id or "").replace("_", " ").strip().title()
+
+
+def _source_host_label(url: str | None) -> str:
+    if not url:
+        return ""
+    try:
+        host = urlparse(url).netloc.lower()
+    except ValueError:
+        return ""
+    host = host.replace("www.", "")
+    if "ecfr.gov" in host:
+        return "eCFR"
+    if "faa.gov" in host:
+        return "FAA"
+    if "drs.faa.gov" in host:
+        return "FAA DRS"
+    if "tc.canada.ca" in host:
+        return "Transport Canada"
+    return host
+
+
+def _pick_citation_url(page_url: str | None, source_url: str | None) -> str | None:
+    page = (page_url or "").strip()
+    source = (source_url or "").strip()
+    if _is_xmlish_url(page):
+        return source or None
+    return page or source or None
+
+
+def _build_citation(cid: str, item) -> dict:
+    source_label = _humanize_source_id(item.chunk.source_id)
+    source_url = (item.chunk.source_url or "").strip() or None
+    page_url = (item.chunk.page_url or "").strip() or None
+    display_url = _pick_citation_url(page_url, source_url)
+    host_label = _source_host_label(display_url)
+    return {
+        "id": cid,
+        "title": item.chunk.title,
+        "section_path": item.chunk.section_path,
+        "url": display_url,
+        "source": source_label,
+        "source_url": source_url,
+        "page_url": page_url,
+        "source_host": host_label,
+        "issue_date": item.chunk.issue_date,
+        "score": round(item.score, 4),
+        "excerpt": _build_excerpt(item.chunk.text),
+    }
 
 
 class RagPipeline:
@@ -34,18 +115,7 @@ class RagPipeline:
             context_lines.append(
                 f"[{cid}] title={item.chunk.title}\nsection_path={item.chunk.section_path}\nurl={item.chunk.page_url}\nissue_date={item.chunk.issue_date or 'unknown'}\ntext={item.chunk.text}\n"
             )
-            citations.append(
-                {
-                    "id": cid,
-                    "title": item.chunk.title,
-                    "section_path": item.chunk.section_path,
-                    "url": item.chunk.page_url,
-                    "source": item.chunk.source_id,
-                    "issue_date": item.chunk.issue_date,
-                    "score": round(item.score, 4),
-                    "excerpt": _build_excerpt(item.chunk.text),
-                }
-            )
+            citations.append(_build_citation(cid, item))
 
         context_block = "\n".join(context_lines) if context_lines else "(No indexed snippets matched — answer entirely from your regulatory knowledge.)"
 
@@ -80,18 +150,7 @@ class RagPipeline:
             context_lines.append(
                 f"[{cid}] title={item.chunk.title}\nsection_path={item.chunk.section_path}\nurl={item.chunk.page_url}\nsource={item.chunk.source_id}\nissue_date={item.chunk.issue_date or 'unknown'}\ntext={item.chunk.text}\n"
             )
-            citations.append(
-                {
-                    "id": cid,
-                    "title": item.chunk.title,
-                    "section_path": item.chunk.section_path,
-                    "url": item.chunk.page_url,
-                    "source": item.chunk.source_id,
-                    "issue_date": item.chunk.issue_date,
-                    "score": round(item.score, 4),
-                    "excerpt": _build_excerpt(item.chunk.text),
-                }
-            )
+            citations.append(_build_citation(cid, item))
 
         context_block = "\n".join(context_lines) if context_lines else "(No indexed snippets matched — answer entirely from your regulatory knowledge.)"
         hint_text = governing_body_hint or "not provided"
