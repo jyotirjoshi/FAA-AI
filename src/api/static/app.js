@@ -164,20 +164,20 @@ function openCitationModal(citation) {
   modal.querySelector('#citationModalTitle').textContent = `${citation.id || 'Citation'} · ${citation.title || 'Section reference'}`;
 
   const metaParts = [
-    citation.section_path ? citation.section_path : '',
-    citation.source ? `Source: ${citation.source}` : '',
-    citation.issue_date ? `Issue date: ${citation.issue_date}` : '',
-    typeof citation.score === 'number' ? `Relevance: ${citation.score.toFixed(3)}` : '',
+    citation.section_path ? `<div><strong>Section:</strong> ${escapeHtml(citation.section_path)}</div>` : '',
+    citation.source ? `<div><strong>Source:</strong> ${escapeHtml(citation.source)}</div>` : '',
+    citation.issue_date ? `<div><strong>Issue Date:</strong> ${escapeHtml(citation.issue_date)}</div>` : '',
+    typeof citation.score === 'number' ? `<div><strong>Relevance:</strong> ${(citation.score * 100).toFixed(0)}% match</div>` : '',
   ].filter(Boolean);
 
-  modal.querySelector('.citation-modal-meta').textContent = metaParts.join(' • ');
+  modal.querySelector('.citation-modal-meta').innerHTML = metaParts.join('');
 
   const excerpt = String(citation.excerpt || 'No excerpt available.');
   modal.querySelector('.citation-modal-excerpt').textContent = excerpt;
 
   const sourceLink = modal.querySelector('.citation-modal-source');
   sourceLink.href = citation.url || '#';
-  sourceLink.textContent = citation.url ? 'Open source' : 'Source unavailable';
+  sourceLink.textContent = citation.url ? 'Open Source Document' : 'Source unavailable';
   sourceLink.toggleAttribute('aria-disabled', !citation.url);
   sourceLink.onclick = event => { if (!citation.url) event.preventDefault(); };
 
@@ -206,17 +206,23 @@ function replaceTypingWithAnswer(typingEl, data) {
     ? `<button class="citations-toggle">Sources (${safeCitations.length}) ▼</button>`
     : '';
 
-  const citationCards = safeCitations.map(c => `
+  const citationCards = safeCitations.map((c, idx) => {
+    const excerptPreview = (c.excerpt || '').slice(0, 280);
+    const relevance = typeof c.score === 'number' ? (c.score * 100).toFixed(0) : 'N/A';
+    return `
     <button class="citation-card citation-card-button" type="button" data-citation-id="${escapeHtml(c.id || '')}">
-      <div class="citation-card-header">
-        <strong>${escapeHtml(c.id || '')}</strong>
-        <span>Flash card</span>
+      <div class="citation-card">
+        <div class="citation-card-header">
+          <strong>[${idx + 1}] ${escapeHtml(c.id || 'REF')}</strong>
+          <span>Source</span>
+        </div>
+        <div class="citation-card-title">${escapeHtml(c.title || 'Untitled section')}</div>
+        ${c.section_path ? `<div class="citation-card-section">§ ${escapeHtml(c.section_path)}</div>` : ''}
+        <div class="citation-card-excerpt">${escapeHtml(excerptPreview)}${excerptPreview.length >= 280 ? '…' : ''}</div>
+        <div class="citation-score">${relevance}% match — click to expand</div>
       </div>
-      <div class="citation-card-title">${escapeHtml(c.title || '')}</div>
-      <div class="citation-card-section">${escapeHtml(c.section_path || '')}</div>
-      <div class="citation-card-excerpt">${escapeHtml((c.excerpt || '').slice(0, 240))}${(c.excerpt || '').length > 240 ? '…' : ''}</div>
-      <div class="citation-score">Tap to view section card</div>
-    </button>`).join('');
+    </button>`;
+  }).join('');
 
   const errorBanner = error
     ? `<div class="error-banner">⚠ ${escapeHtml(String(error))}</div>`

@@ -164,10 +164,10 @@ function openCitationModal(citation) {
   modal.querySelector('#citationModalTitle').textContent = `${citation.id || 'Citation'} · ${citation.title || 'Section reference'}`;
 
   const metaParts = [
-    citation.section_path ? `<div>📍 <strong>Section:</strong> ${escapeHtml(citation.section_path)}</div>` : '',
-    citation.source ? `<div>📄 <strong>Source:</strong> ${escapeHtml(citation.source)}</div>` : '',
-    citation.issue_date ? `<div>📅 <strong>Issue Date:</strong> ${escapeHtml(citation.issue_date)}</div>` : '',
-    typeof citation.score === 'number' ? `<div>⭐ <strong>Relevance:</strong> ${(citation.score * 100).toFixed(0)}% match</div>` : '',
+    citation.section_path ? `<div><strong>Section:</strong> ${escapeHtml(citation.section_path)}</div>` : '',
+    citation.source ? `<div><strong>Source:</strong> ${escapeHtml(citation.source)}</div>` : '',
+    citation.issue_date ? `<div><strong>Issue Date:</strong> ${escapeHtml(citation.issue_date)}</div>` : '',
+    typeof citation.score === 'number' ? `<div><strong>Relevance:</strong> ${(citation.score * 100).toFixed(0)}% match</div>` : '',
   ].filter(Boolean);
 
   modal.querySelector('.citation-modal-meta').innerHTML = metaParts.join('');
@@ -177,7 +177,7 @@ function openCitationModal(citation) {
 
   const sourceLink = modal.querySelector('.citation-modal-source');
   sourceLink.href = citation.url || '#';
-  sourceLink.textContent = citation.url ? '🔗 Open Source Document' : 'Source unavailable';
+  sourceLink.textContent = citation.url ? 'Open Source Document' : 'Source unavailable';
   sourceLink.toggleAttribute('aria-disabled', !citation.url);
   sourceLink.onclick = event => { if (!citation.url) event.preventDefault(); };
 
@@ -203,7 +203,7 @@ function replaceTypingWithAnswer(typingEl, data) {
   const confidenceBadge = `<span class="badge badge-confidence">${pct}% confidence</span>`;
 
   const citationsToggle = safeCitations.length > 0
-    ? `<button class="citations-toggle">📚 Sources (${safeCitations.length}) ▼</button>`
+    ? `<button class="citations-toggle">Sources (${safeCitations.length}) ▼</button>`
     : '';
 
   const citationCards = safeCitations.map((c, idx) => {
@@ -214,12 +214,12 @@ function replaceTypingWithAnswer(typingEl, data) {
       <div class="citation-card">
         <div class="citation-card-header">
           <strong>[${idx + 1}] ${escapeHtml(c.id || 'REF')}</strong>
-          <span>📋 Source</span>
+          <span>Source</span>
         </div>
         <div class="citation-card-title">${escapeHtml(c.title || 'Untitled section')}</div>
         ${c.section_path ? `<div class="citation-card-section">§ ${escapeHtml(c.section_path)}</div>` : ''}
         <div class="citation-card-excerpt">${escapeHtml(excerptPreview)}${excerptPreview.length >= 280 ? '…' : ''}</div>
-        <div class="citation-score">📌 ${relevance}% match · Click to expand</div>
+        <div class="citation-score">${relevance}% match — click to expand</div>
       </div>
     </button>`;
   }).join('');
