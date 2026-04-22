@@ -136,14 +136,16 @@ function ensureCitationModal() {
   citationModal.innerHTML = `
     <div class="citation-modal-backdrop" data-close="true"></div>
     <div class="citation-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="citationModalTitle">
-      <button class="citation-modal-close" type="button" aria-label="Close citation card">×</button>
+      <button class="citation-modal-close" type="button" aria-label="Close">×</button>
       <div class="citation-modal-body">
-        <div class="citation-modal-kicker">Citation Flash Card</div>
+        <div class="citation-modal-kicker">Source Reference</div>
+        <div class="citation-modal-ref-id"></div>
         <h3 id="citationModalTitle"></h3>
         <div class="citation-modal-meta"></div>
+        <div class="citation-excerpt-label">Regulation Text</div>
         <div class="citation-modal-excerpt"></div>
         <div class="citation-modal-actions">
-          <a class="citation-modal-source" target="_blank" rel="noopener">Open source</a>
+          <a class="citation-modal-source" target="_blank" rel="noopener">Open Source Document</a>
         </div>
       </div>
     </div>`;
@@ -161,19 +163,30 @@ function ensureCitationModal() {
 
 function openCitationModal(citation) {
   const modal = ensureCitationModal();
-  modal.querySelector('#citationModalTitle').textContent = `${citation.id || 'Citation'} · ${citation.title || 'Section reference'}`;
 
-  const metaParts = [
-    citation.section_path ? `<div><strong>Section:</strong> ${escapeHtml(citation.section_path)}</div>` : '',
-    citation.source ? `<div><strong>Source:</strong> ${escapeHtml(citation.source)}</div>` : '',
-    citation.issue_date ? `<div><strong>Issue Date:</strong> ${escapeHtml(citation.issue_date)}</div>` : '',
-    typeof citation.score === 'number' ? `<div><strong>Relevance:</strong> ${(citation.score * 100).toFixed(0)}% match</div>` : '',
+  const refIdEl = modal.querySelector('.citation-modal-ref-id');
+  refIdEl.textContent = citation.id || '';
+
+  modal.querySelector('#citationModalTitle').textContent = citation.title || 'Section Reference';
+
+  const metaRows = [
+    citation.section_path ? ['Section', citation.section_path] : null,
+    citation.source       ? ['Source',  citation.source]       : null,
+    citation.issue_date   ? ['Issue Date', citation.issue_date] : null,
+    typeof citation.score === 'number'
+      ? ['Relevance', `${(citation.score * 100).toFixed(0)}% match`]
+      : null,
   ].filter(Boolean);
 
-  modal.querySelector('.citation-modal-meta').innerHTML = metaParts.join('');
+  modal.querySelector('.citation-modal-meta').innerHTML = metaRows.map(([label, value]) =>
+    `<div class="citation-meta-row">
+      <span class="citation-meta-label">${escapeHtml(label)}</span>
+      <span class="citation-meta-value">${escapeHtml(String(value))}</span>
+    </div>`
+  ).join('');
 
-  const excerpt = String(citation.excerpt || 'No excerpt available.');
-  modal.querySelector('.citation-modal-excerpt').textContent = excerpt;
+  modal.querySelector('.citation-modal-excerpt').textContent =
+    String(citation.excerpt || 'No excerpt available.');
 
   const sourceLink = modal.querySelector('.citation-modal-source');
   sourceLink.href = citation.url || '#';
