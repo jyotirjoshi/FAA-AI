@@ -504,6 +504,8 @@ body {
   color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
+  max-height: 380px;
+  overflow-y: auto;
 }
 
 .citation-modal-actions {

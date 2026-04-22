@@ -200,11 +200,14 @@ function openCitationModal(citation) {
   modal.querySelector('.citation-modal-excerpt').textContent =
     cleanText(citation.excerpt) || 'No excerpt available.';
 
+  const rawUrl = cleanText(citation.url || '').replace(/\s/g, '');
+  const validUrl = rawUrl.startsWith('http') ? rawUrl : '';
   const sourceLink = modal.querySelector('.citation-modal-source');
-  sourceLink.href = citation.url || '#';
-  sourceLink.textContent = citation.url ? 'Open Source Document' : 'Source unavailable';
-  sourceLink.toggleAttribute('aria-disabled', !citation.url);
-  sourceLink.onclick = event => { if (!citation.url) event.preventDefault(); };
+  sourceLink.href = validUrl || '#';
+  sourceLink.textContent = validUrl ? 'View Regulation' : 'Source Not Available';
+  sourceLink.style.opacity = validUrl ? '1' : '0.5';
+  sourceLink.style.pointerEvents = validUrl ? '' : 'none';
+  sourceLink.onclick = null;
 
   modal.classList.add('open');
   document.body.classList.add('modal-open');
