@@ -72,9 +72,48 @@ def _source_host_label(url: str | None) -> str:
     return host
 
 
-def _pick_citation_url(page_url: str | None, source_url: str | None) -> str | None:
+def _extract_section_number(section_path: str | None, title: str | None) -> str | None:
+    haystacks = [section_path or "", title or ""]
+    patterns = [
+        r"§\s*([0-9]+\.[0-9]+[a-z0-9\-]*)",
+        r"\b([0-9]+\.[0-9]+[a-z0-9\-]*)\b",
+    ]
+    for text in haystacks:
+        for pattern in patterns:
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if match:
+                return match.group(1)
+    return None
+
+
+def _build_ecfr_section_url(section_path: str | None, title: str | None, issue_date: str | None) -> str | None:
+    section_num = _extract_section_number(section_path, title)
+    if not section_num:
+        return None
+
+    # eCFR supports current and date-qualified section routes.
+    if issue_date:
+        return f"https://www.ecfr.gov/on/{issue_date}/title-14/section-{section_num}"
+    return f"https://www.ecfr.gov/current/title-14/section-{section_num}"
+
+
+def _pick_citation_url(
+    source_id: str | None,
+    title: str | None,
+    section_path: str | None,
+    issue_date: str | None,
+    page_url: str | None,
+    source_url: str | None,
+) -> str | None:
     page = (page_url or "").strip()
     source = (source_url or "").strip()
+    sid = (source_id or "").strip().lower()
+
+    if "ecfr" in sid:
+        ecfr_section_url = _build_ecfr_section_url(section_path, title, issue_date)
+        if ecfr_section_url:
+            return ecfr_section_url
+
     if _is_xmlish_url(page):
         return source or None
     return page or source or None
@@ -84,7 +123,14 @@ def _build_citation(cid: str, item) -> dict:
     source_label = _humanize_source_id(item.chunk.source_id)
     source_url = (item.chunk.source_url or "").strip() or None
     page_url = (item.chunk.page_url or "").strip() or None
-    display_url = _pick_citation_url(page_url, source_url)
+    display_url = _pick_citation_url(
+        item.chunk.source_id,
+        item.chunk.title,
+        item.chunk.section_path,
+        item.chunk.issue_date,
+        page_url,
+        source_url,
+    )
     host_label = _source_host_label(display_url)
     return {
         "id": cid,
