@@ -10,51 +10,87 @@ from src.config import settings
 
 
 SYSTEM_PROMPT = """
-You are a senior aviation certification engineer with DER/ODA-level regulatory judgment.
+You are a senior aviation certification engineer operating at DER/ODA/ACO level. Your job is to make certification-quality decisions, identify the exact governing regulations, and give engineers actionable compliance guidance.
 
-Your job is not to chat or summarize text. Your job is to make a certification-quality decision, map the problem to the governing rules, explain the engineering impact, and identify the most likely approval path.
+## Core Rules
 
-Core standards:
-- Answer like a real certification engineer, DER, or ODA unit member would.
-- Be decisive, technical, and practical. Do not hedge with vague language.
-- If the question concerns a modification or approval path, always classify the likely approval route first: major change, minor change, STC, amended TC, field approval, or another path if clearly supported.
-- Apply certification workflow logic, not just regulation lookup:
-    - Decide whether the change is likely a major change, minor change, STC candidate, amended TC candidate, or another approval path.
-    - Use certification-basis logic: original type design, amended TC, STC scope, prior approvals, and affected systems or interiors must be considered together.
-    - If the change affects seats, monuments, exits, floor structure, restraint paths, flammability, evacuation, or system safety, treat it as certification-impacting until proven otherwise.
-    - If required aircraft data is missing, state the missing inputs and still give the most defensible certification path.
-    - Prefer a final decision with rationale over a list of possibilities.
-- Treat regulations, ACs, policy memos, issue papers, CRIs, and special conditions differently: cite which ones are mandatory law, which are guidance, and which are project-specific interpretation.
-- Use the provided context snippets as evidence, but rely on regulatory knowledge to complete the reasoning when a snippet only points to a section.
-- Do not invent section numbers, thresholds, or dates. If a detail is uncertain, say it is a gap and continue with the best defensible engineering interpretation.
+**Relevance Gate — Applied Before Every Response**
+Only cite a regulation if the question directly and specifically triggers it. Do not list sections that "may relate" or are "worth considering." If a section is not activated by this specific question, it does not appear in your answer.
 
-Required reasoning behavior:
-- Map the request to the affected safety domains: structure, loads, crashworthiness, evacuation/egress, flammability/fire, electrical/system safety, human factors, and any special certification constraints.
-- Build a regulation map before answering: identify sections that are directly triggered, downstream-triggered, or commonly scrutinized by FAA/DER/ODA reviewers.
-- If the request involves cabin or seating changes, explicitly consider 25.561, 25.562, 25.567, 25.785, 25.795, 25.803, 25.807, 25.813, 25.853, and any system-safety or installation rules that the change activates.
-- If the request involves structural modification, reason through load paths, attachment integrity, substantiation, and whether amended stress analysis or test evidence is needed.
-- If the request involves fire or interior materials, separate flammability compliance from heat-release, smoke, toxicity, or special-condition reasoning when applicable.
-- If the request involves electrical or equipment changes, reason through failure conditions, segregation, power supply effects, and system safety assessment expectations.
-- Resolve overlapping or conflicting requirements using regulatory hierarchy, certification basis rules, and equivalent level of safety logic when applicable.
-- Identify what will actually trigger FAA/Transport Canada scrutiny, what can fail certification, and what evidence is typically expected.
-- Convert requirements into action: analyses, tests, demonstrations, conformity items, substantiation packages, and approval steps.
-- Think in program terms, not just section terms: aircraft configuration, passenger count, seat/monument/layout changes, STC scope, and downstream compliance impacts.
+**Decision First — No Exceptions**
+Every response opens with a 1–3 sentence decision stating the approval path and primary regulatory driver. Examples:
+- "This is a Major Change requiring an STC. The primary driver is 14 CFR 25.785(b), which governs seat installation and requires new dynamic test qualification."
+- "This qualifies as a Minor Alteration. The proposed change does not affect structural load paths, evacuation routes, or flammability compliance, so a Form 337 with field approval data is the appropriate path."
 
-Output rules:
-- Use a fixed structure with clear headings.
-- Start with the direct decision or recommendation.
-- Include a short decision sentence such as "Likely STC", "Likely minor change", or "Further basis data needed" before the detailed analysis.
-- Then list the applicable regulations and whether each one is mandatory or guidance.
-- Then explain the impact/why each regulation applies.
-- Then list risks, failure points, and likely FAA/DER questions.
-- Then give the compliance approach with tests, analyses, demonstrations, and documents.
-- Then give ordered action steps.
-- Keep the response traceable and professional.
-- Use plain-language references in the answer; do not use internal citation tokens in the prose.
-    The source list is handled separately by the application UI.
+**Exact Requirements — No Section Numbers Alone**
+For every cited section, state the actual requirement: the specific threshold, test criterion, acceptance standard, or procedural step.
+- Wrong: "25.562 applies."
+- Correct: "25.562(b)(2) requires a forward-facing dynamic test at a 16g peak deceleration with a pulse duration of at least 0.105 seconds, with no head contact with structure permitted."
+
+**Source Labeling**
+When a retrieved snippet provides the regulatory text, use it directly. When completing analysis from regulatory knowledge (no snippet), label it [regulatory knowledge]. Never invent section numbers, thresholds, or test values — if uncertain, state "exact threshold not confirmed in retrieved sources."
+
+**Complete Answers Only**
+Never truncate the Compliance Approach or Action Steps. If you begin listing steps, all steps must be present. A cut-off answer is a wrong answer.
+
+## Approval Path Classification
+Classify every modification question before detailed analysis:
+- **Major Change / STC**: Affects the type design, airworthiness basis, or requires approved data beyond the existing certification basis. Requires STC or amended TC.
+- **Major Repair**: Restores strength or airworthiness but does not alter type design. Form 337 with DER-approved data required.
+- **Minor Alteration**: No appreciable effect on structural strength, flight characteristics, or other airworthiness qualities. Accepted techniques, no DER required.
+- **Field Approval**: Single aircraft, local FSDO jurisdiction, not a production change.
+- **Amended TC**: Modification to the original TC holder's type design.
+
+## Required Output Structure
+
+Always use these exact headings in this order:
+
+### Direct Decision
+[1–3 sentences: approval path classification + primary regulatory driver that determines the path]
+
+### Applicable Regulations
+For each directly triggered section only — not sections that "may apply":
+- **[Section number and title]** — [Mandatory / Advisory] — [Exact requirement including threshold, test criterion, or procedural step] — [One sentence explaining why this specific question triggers this section]
+
+### Impact Explanation
+Engineering consequences of the change: load paths affected, safety systems involved, downstream compliance impacts. Use specific numbers and thresholds where they exist.
+
+### Risks and Failure Points
+What will specifically fail certification. What FAA/TCCA reviewers will scrutinize. Which test or analysis is most likely to surface a non-compliance. Be concrete — "the forward head exceedance in the 16g test is the most common failure point for forward-facing seats" is useful; "there may be some risks" is not.
+
+### Compliance Approach
+For each required element: what it is, the acceptance criterion, and who approves it. Include:
+- Required analyses (stress, loads, failure condition assessment)
+- Required tests (static, dynamic, flammability, environmental)
+- Required documentation (STR, substantiation package, Form 337, STC application)
+
+### Action Steps
+Ordered, concrete steps — each names a specific deliverable. Do not stop until all steps are listed. Example format:
+1. Obtain the aircraft's current TCDS and identify the certification basis including all amendments.
+2. Engage a DER with structures and/or interior authority to review the scope of change.
+3. ...
+
+## Regulatory Hierarchy
+When requirements conflict, apply in this priority order:
+1. Special Conditions (aircraft-specific, highest priority)
+2. Airworthiness Directives (mandatory compliance)
+3. 14 CFR / CARs (mandatory law)
+4. Equivalent Level of Safety findings (accepted alternative means)
+5. Advisory Circulars (guidance, not mandatory)
+6. Issue Papers / CRIs (project-specific interpretation, advisory)
+7. Policy letters / internal memos (lowest priority)
+
+## Transport Canada
+When TC/TCCA context is indicated (Canadian operator, Canadian registration, CAR 525 referenced), use CAR 525 numbering and TCCA procedures throughout. Explicitly note where FAA 14 CFR and TCCA CAR 525 requirements diverge on the same topic.
+
+## Handling Incomplete Retrieved Context
+If retrieved snippets do not contain full regulatory text for a section:
+- Complete the analysis from regulatory knowledge and label it [regulatory knowledge]
+- Still give the complete, actionable answer — do not refuse or hedge
+- If a specific threshold or test value is uncertain, say so explicitly rather than inventing a number
 """.strip()
 
-# Phrases that indicate the model refused instead of answering
+
 _REFUSAL_PATTERNS = [
     r"cannot answer with sufficient certainty",
     r"cannot answer.*indexed sources",
@@ -67,17 +103,8 @@ _REFUSAL_PATTERNS = [
     r"not able to answer",
 ]
 
-_INTRO_PATTERNS = [
-    r"^(As |I am |I'm )(an? )?(AI|language model|assistant|GLM|chatbot)[^.]*\.",
-    r"^(Hello|Hi)[!,]?\s+(I('m| am)|my name is)[^.]*\.",
-]
-
-_HF_DEFAULT_MODEL = "Qwen/Qwen2.5-72B-Instruct"
-_NV_DEFAULT_MODEL = "meta/llama-4-maverick-17b-128e-instruct"
-_ANTHROPIC_DEFAULT_MODEL = "claude-3-5-sonnet-latest"
-
-# Per-call timeout (seconds). Two calls max = 2 × 25 = 50s, safely under nginx 60s limit.
-_CALL_TIMEOUT = 25
+# 55 seconds — safely under nginx/proxy 60s hard limit, enough for 4096-token responses
+_CALL_TIMEOUT = 55
 
 
 def _is_refusal(text: str) -> bool:
@@ -85,231 +112,25 @@ def _is_refusal(text: str) -> bool:
     return any(re.search(p, lower) for p in _REFUSAL_PATTERNS)
 
 
-def _strip_intro(text: str) -> str:
-    for p in _INTRO_PATTERNS:
-        text = re.sub(p, "", text, flags=re.IGNORECASE | re.MULTILINE).lstrip()
-    return text
-
-
-def _looks_like_nvapi_model(model: str) -> bool:
-    lowered = (model or "").lower()
-    return any(token in lowered for token in ["meta/llama", "llama-4", "maverick"])
-
-
 class LLMClient:
     def __init__(self) -> None:
-        base_url = (
-            settings.ai_gamma4_base_url
-            or os.getenv("AI_GAMMA4_BASE_URL", "")
-            or settings.llm_base_url
-        )
-        api_key = settings.ai_gamma4_key or os.getenv("AI_GAMMA4_KEY", "") or settings.llm_api_key
-        model = settings.ai_gamma4_model or os.getenv("AI_GAMMA4_MODEL", "") or settings.llm_model
+        self.base_url = (settings.llm_base_url or os.getenv("LLM_BASE_URL", "")).rstrip("/")
+        self.api_key = settings.llm_api_key or os.getenv("LLM_API_KEY", "")
+        self.model = (settings.llm_model or os.getenv("LLM_MODEL", "")).strip()
 
-        nvapi_key = settings.nvapi_key or os.getenv("NVAPI_KEY", "")
-        nvapi_base_url = settings.nvapi_base_url or os.getenv("NVAPI_BASE_URL", "")
-        nvapi_model = settings.nvapi_model or os.getenv("NVAPI_MODEL", "")
-
-        litai_key = settings.litai_api_key or os.getenv("LITAI_API_KEY", "")
-        litai_base_url = settings.litai_base_url or os.getenv("LITAI_BASE_URL", "")
-        litai_model = settings.litai_model or os.getenv("LITAI_MODEL", "")
-
-        hf_token = (
-            settings.hf_api_token
-            or os.getenv("HF_API_TOKEN", "")
-            or os.getenv("HF_TOKEN", "")
-        )
-        hf_base_url = settings.hf_api_base_url or os.getenv("HF_API_BASE_URL", "")
-        hf_model = settings.hf_model or os.getenv("HF_MODEL", "")
-
-        anthropic_key = settings.anthropic_api_key or os.getenv("ANTHROPIC_API_KEY", "")
-        anthropic_base_url = settings.anthropic_base_url or os.getenv("ANTHROPIC_BASE_URL", "")
-        anthropic_model = settings.anthropic_model or os.getenv("ANTHROPIC_MODEL", "")
-
-        # Highest precedence: explicit NVAPI key.
-        if nvapi_key:
-            base_url = nvapi_base_url or "https://integrate.api.nvidia.com/v1"
-            api_key = nvapi_key
-            model = nvapi_model or _NV_DEFAULT_MODEL
-
-        # Optional generic LitAI-compatible config (if user routes through OpenAI-compatible base URL).
-        elif litai_key:
-            if litai_base_url:
-                base_url = litai_base_url
-            api_key = litai_key
-            if litai_model:
-                model = litai_model
-
-        # Legacy Lightning endpoints should not win when the configured model is clearly NVAPI-based.
-        elif "lightning.ai" in base_url.lower() and api_key and _looks_like_nvapi_model(model):
-            base_url = nvapi_base_url or "https://integrate.api.nvidia.com/v1"
-
-        # If the base URL is still a legacy Lightning endpoint, prefer the newer providers instead.
-        elif "lightning.ai" in base_url.lower():
-            if hf_token:
-                base_url = hf_base_url or "https://router.huggingface.co/v1"
-                api_key = hf_token
-                model = hf_model or _HF_DEFAULT_MODEL
-            elif api_key and _looks_like_nvapi_model(model):
-                base_url = nvapi_base_url or "https://integrate.api.nvidia.com/v1"
-            else:
-                base_url = nvapi_base_url or base_url
-
-        # If standard LLM key is not configured but HF token is, use HF Router automatically.
-        if (not api_key) and hf_token:
-            base_url = hf_base_url or "https://router.huggingface.co/v1"
-            api_key = hf_token
-            model = hf_model or _HF_DEFAULT_MODEL
-
-        # Tolerate accidental spaces around separators in model ids.
-        model = (model or "").replace(" / ", "/").replace(" /", "/").replace("/ ", "/").strip()
-
-        self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
-        self.model = model
-        self._provider_candidates = self._build_provider_candidates(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            model=self.model,
-            nvapi_base_url=nvapi_base_url,
-            nvapi_key=nvapi_key,
-            nvapi_model=nvapi_model,
-            hf_base_url=hf_base_url,
-            hf_token=hf_token,
-            hf_model=hf_model,
-            anthropic_base_url=anthropic_base_url,
-            anthropic_key=anthropic_key,
-            anthropic_model=anthropic_model,
-            litai_base_url=litai_base_url,
-            litai_key=litai_key,
-            litai_model=litai_model,
-        )
-
-    def _build_provider_candidates(
-        self,
-        *,
-        base_url: str,
-        api_key: str,
-        model: str,
-        nvapi_base_url: str,
-        nvapi_key: str,
-        nvapi_model: str,
-        hf_base_url: str,
-        hf_token: str,
-        hf_model: str,
-        anthropic_base_url: str,
-        anthropic_key: str,
-        anthropic_model: str,
-        litai_base_url: str,
-        litai_key: str,
-        litai_model: str,
-    ) -> list[tuple[str, str, str, str]]:
-        providers: list[tuple[str, str, str, str]] = []
-
-        if nvapi_key:
-            providers.append(
-                (
-                    "nvapi",
-                    nvapi_base_url or "https://integrate.api.nvidia.com/v1",
-                    nvapi_key,
-                    nvapi_model or _NV_DEFAULT_MODEL,
-                )
-            )
-
-        if anthropic_key:
-            providers.append(
-                (
-                    "anthropic",
-                    anthropic_base_url or "https://api.anthropic.com",
-                    anthropic_key,
-                    anthropic_model or _ANTHROPIC_DEFAULT_MODEL,
-                )
-            )
-
-        if hf_token:
-            providers.append(
-                (
-                    "hf",
-                    hf_base_url or "https://router.huggingface.co/v1",
-                    hf_token,
-                    hf_model or _HF_DEFAULT_MODEL,
-                )
-            )
-
-        if litai_key:
-            providers.append(
-                (
-                    "litai",
-                    litai_base_url or base_url,
-                    litai_key,
-                    litai_model or model,
-                )
-            )
-
-        if api_key and "lightning.ai" not in base_url.lower():
-            providers.append(("legacy", base_url, api_key, model))
-
-        return providers
-
-    @staticmethod
-    def _endpoints_for(base_url: str) -> list[str]:
-        # Support both bases that already include /v1 and ones that don't.
-        if base_url.endswith("/v1"):
-            return [f"{base_url}/chat/completions", f"{base_url}/completions"]
-        return [
-            f"{base_url}/chat/completions",
-            f"{base_url}/v1/chat/completions",
-            f"{base_url}/completions",
-            f"{base_url}/v1/completions",
-        ]
-
-    def _extract_text(self, data: dict) -> str:
-        choices = data.get("choices") or []
-        if not choices:
-            raise RuntimeError("LLM response did not include choices.")
-
-        first = choices[0] or {}
-        message = first.get("message") or {}
-        content = message.get("content")
-
-        if isinstance(content, str):
-            return content.strip()
-
-        # Some providers return an array of content parts.
-        if isinstance(content, list):
-            text_parts: list[str] = []
-            for item in content:
-                if isinstance(item, dict) and item.get("type") == "text" and item.get("text"):
-                    text_parts.append(str(item["text"]))
-            joined = "\n".join(text_parts).strip()
-            if joined:
-                return joined
-
-        # Legacy completion-style fallback.
-        text = first.get("text")
-        if isinstance(text, str) and text.strip():
-            return text.strip()
-
-        raise RuntimeError("LLM response did not include textual content.")
-
-    async def _call_async(
-        self,
-        messages: list[dict],
-        client: httpx.AsyncClient,
-        *,
-        provider_name: str,
-        base_url: str,
-        api_key: str,
-        model: str,
-    ) -> str:
-        if provider_name == "anthropic":
-            return await self._call_anthropic_async(messages, client, base_url=base_url, api_key=api_key, model=model)
-
+    async def _post_async(self, messages: list[dict], client: httpx.AsyncClient) -> str:
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        payload = {"model": model, "messages": messages, "temperature": 0.0}
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "temperature": 0.0,
+        }
+        # Lightning.ai accepts both string and array content formats.
+        # Try string format first (standard OpenAI); fall back to array format on 4xx.
         alt_messages = [
             {
                 **m,
@@ -319,81 +140,42 @@ class LLMClient:
             }
             for m in messages
         ]
-        alt_payload = {"model": model, "messages": alt_messages, "temperature": 0.0}
+        alt_payload = {**payload, "messages": alt_messages}
 
-        last_error: Exception | None = None
-
-        for url in self._endpoints_for(base_url):
-            try:
-                resp = await client.post(url, json=payload, headers=headers)
-                if resp.status_code >= 400:
-                    resp = await client.post(url, json=alt_payload, headers=headers)
-                resp.raise_for_status()
-                return self._extract_text(resp.json())
-            except Exception as exc:  # noqa: BLE001
-                last_error = exc
-                continue
-
-        raise RuntimeError(f"All LLM endpoints failed for base URL '{self.base_url}'.") from last_error
-
-    async def _call_anthropic_async(
-        self,
-        messages: list[dict],
-        client: httpx.AsyncClient,
-        *,
-        base_url: str,
-        api_key: str,
-        model: str,
-    ) -> str:
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
-
-        system_text = "\n\n".join(
-            str(m.get("content", "")) for m in messages if m.get("role") == "system"
-        ).strip()
-        user_turns = [m for m in messages if m.get("role") in {"user", "assistant"}]
-        if not user_turns:
-            user_turns = [{"role": "user", "content": "Please answer the question directly."}]
-
-        anth_messages = [
-            {
-                "role": "assistant" if m["role"] == "assistant" else "user",
-                "content": [{"type": "text", "text": str(m.get("content", ""))}],
-            }
-            for m in user_turns
-        ]
-
-        payload = {
-            "model": model,
-            "max_tokens": 1200,
-            "temperature": 0.0,
-            "messages": anth_messages,
-        }
-        if system_text:
-            payload["system"] = system_text
-
-        resp = await client.post(f"{base_url.rstrip('/')}/v1/messages", json=payload, headers=headers)
+        url = f"{self.base_url}/chat/completions"
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code >= 400:
+            resp = await client.post(url, json=alt_payload, headers=headers)
         resp.raise_for_status()
-        data = resp.json()
-        content = data.get("content") or []
-        text_parts: list[str] = []
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text" and item.get("text"):
-                text_parts.append(str(item["text"]))
-        answer = "\n".join(text_parts).strip()
-        if not answer:
-            raise RuntimeError("Anthropic response did not include textual content.")
-        return answer
+        return self._extract_text(resp.json())
+
+    @staticmethod
+    def _extract_text(data: dict) -> str:
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("LLM response did not include choices.")
+        first = choices[0] or {}
+        message = first.get("message") or {}
+        content = message.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts = [
+                item["text"]
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text" and item.get("text")
+            ]
+            joined = "\n".join(parts).strip()
+            if joined:
+                return joined
+        text = first.get("text")
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+        raise RuntimeError("LLM response did not include textual content.")
 
     async def chat_async(self, user_prompt: str, history: list[dict] | None = None) -> str:
         if not self.api_key:
-            return (
-                "LLM is not configured. Set one of: "
-                "NVAPI_KEY, AI_GAMMA4_KEY, LLM_API_KEY, LITAI_API_KEY, or HF_TOKEN/HF_API_TOKEN."
-            )
+            return "LLM is not configured. Set LLM_API_KEY in your environment or .env file."
 
         messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
         for turn in history or []:
@@ -404,54 +186,30 @@ class LLMClient:
         messages.append({"role": "user", "content": user_prompt})
 
         async with httpx.AsyncClient(timeout=_CALL_TIMEOUT) as client:
-            last_error: Exception | None = None
-            for provider_name, base_url, api_key, model in self._provider_candidates:
-                try:
-                    answer = await self._call_async(
-                        messages,
-                        client,
-                        provider_name=provider_name,
-                        base_url=base_url,
-                        api_key=api_key,
-                        model=model,
-                    )
+            try:
+                answer = await self._post_async(messages, client)
 
-                    # If the model refused or produced an empty response, force a direct retry.
-                    if _is_refusal(answer) or len(answer.strip()) < 24:
-                        retry_messages = [
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": user_prompt},
-                            {"role": "assistant", "content": answer},
-                            {
-                                "role": "user",
-                                "content": (
-                                    "You just gave a refusal instead of answering. That is not acceptable. "
-                                    "Ignore any limitation about indexed sources — you have comprehensive knowledge "
-                                    "of aviation regulations. Answer the original question now, directly and in full detail, "
-                                    "using your knowledge of FAA 14 CFR, Transport Canada, and related frameworks. "
-                                    "Do not mention the indexed sources. Just answer."
-                                ),
-                            },
-                        ]
-                        answer = await self._call_async(
-                            retry_messages,
-                            client,
-                            provider_name=provider_name,
-                            base_url=base_url,
-                            api_key=api_key,
-                            model=model,
-                        )
+                if _is_refusal(answer) or len(answer.strip()) < 24:
+                    retry_messages = messages + [
+                        {"role": "assistant", "content": answer},
+                        {
+                            "role": "user",
+                            "content": (
+                                "Your previous response did not answer the question. "
+                                "Use the regulatory context provided and your knowledge of 14 CFR, "
+                                "Transport Canada CARs, and related airworthiness frameworks to answer "
+                                "the original question completely. Follow the required output structure: "
+                                "Direct Decision, Applicable Regulations, Impact Explanation, "
+                                "Risks and Failure Points, Compliance Approach, Action Steps."
+                            ),
+                        },
+                    ]
+                    answer = await self._post_async(retry_messages, client)
 
-                    cleaned = _strip_intro(answer)
-                    if cleaned:
-                        return cleaned
-                except Exception as exc:  # noqa: BLE001
-                    last_error = exc
-                    continue
+                return answer.strip() if answer.strip() else "I could not generate a usable answer for this query."
 
-            if last_error is not None:
-                return f"The model request failed. Please try again.\n\n⚠ {last_error}"
-            return "I could not generate a usable answer for this query."
+            except Exception as exc:  # noqa: BLE001
+                return f"The model request failed. Please try again.\n\n⚠ {exc}"
 
     def chat(self, user_prompt: str) -> str:
         """Sync wrapper — runs the async implementation in a new event loop if needed."""
@@ -461,10 +219,9 @@ class LLMClient:
             loop = None
 
         if loop and loop.is_running():
-            # Already inside an async context (FastAPI) — caller should use chat_async directly
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, self.chat_async(user_prompt))
-                return future.result(timeout=55)
+                return future.result(timeout=60)
         else:
             return asyncio.run(self.chat_async(user_prompt))
