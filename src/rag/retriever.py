@@ -34,11 +34,11 @@ class Retriever:
 
     def _source_bonus(self, source_id: str, query: str) -> float:
         text = query.lower()
-        if any(token in text for token in ["car 525", "transport canada", "canadian aviation"]):
+        if any(token in text for token in ["car 525", "car525", "chapter 525", "transport canada", "canadian aviation"]):
             if source_id == "tc_car_525":
-                return 0.10
+                return 0.22
             if source_id.startswith("faa_ecfr"):
-                return -0.03
+                return -0.08
 
         if any(token in text for token in ["part 25", "part 21", "title 14", "cfr", "federal aviation administration", "faa"]):
             if source_id == "faa_ecfr_title14_full":
@@ -60,6 +60,7 @@ class Retriever:
         q = query.lower()
         return {
             "space_context": any(token in q for token in ["launch", "reentry", "rlv", "spaceport", "permittee"]),
+            "tc_context": any(token in q for token in ["car 525", "car525", "chapter 525", "transport canada", "tcca"]),
             "private_jet_context": any(
                 token in q
                 for token in [
@@ -97,15 +98,23 @@ class Retriever:
         if part is None:
             return 0.0
 
+        if part >= 400 and not flags["space_context"]:
+            return -0.35
+
         # Strongly prefer certification parts used in private/business jet modifications.
         preferred_parts = {21, 23, 25, 26, 27, 29, 39, 43, 91, 121, 125, 129, 135, 145}
         if flags["private_jet_context"] or flags["elos_context"]:
             if part in preferred_parts:
                 return 0.08
-            if part >= 400:
-                return -0.35
             if part in {5, 31, 401, 413, 414, 415, 417, 431, 437}:
                 return -0.30
+
+        if flags["tc_context"]:
+            if chunk_source := (source_id or ""):
+                if chunk_source == "tc_car_525":
+                    return 0.10
+                if "faa_" in chunk_source:
+                    return -0.06
 
         # Generic FAA certification asks should still suppress space-launch parts.
         if any(token in query.lower() for token in ["faa", "cfr", "part 25", "certification"]):
@@ -166,6 +175,8 @@ class Retriever:
         if not cited_sections:
             return []
 
+        flags = self._query_flags(query)
+
         candidates: list[RetrievedChunk] = []
         for chunk in self.store.chunks:
             section_path = (chunk.section_path or "").lower()
@@ -177,6 +188,8 @@ class Retriever:
             score = 0.60
             if chunk.source_id in {"faa_ecfr_title14_full", "faa_ecfr_part25_fallback", "faa_far_part25"}:
                 score += 0.14
+            if flags["tc_context"] and chunk.source_id == "tc_car_525":
+                score += 0.18
             if "section" in section_path or "part 25" in section_path:
                 score += 0.06
 

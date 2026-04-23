@@ -124,6 +124,27 @@ def _is_low_quality_answer(text: str) -> bool:
     return (too_short and not has_structure) or overly_generic
 
 
+def _is_misaligned_answer(user_prompt: str, answer: str) -> bool:
+    q = (user_prompt or "").lower()
+    a = (answer or "").lower()
+
+    asks_car_525 = any(token in q for token in ["car 525", "chapter 525", "525."])
+    if asks_car_525:
+        mentions_525 = ("car 525" in a) or ("525." in a)
+        heavy_faa = ("14 cfr" in a) and (a.count("14 cfr") >= 2)
+        if (not mentions_525) or (heavy_faa and not mentions_525):
+            return True
+
+    asks_requirements = any(token in q for token in ["requirements", "what are the regulatory requirements", "what does"]) 
+    if asks_requirements:
+        missing_detail_block = "applicable regulations" not in a
+        weak_detail = "legal status" not in a or "means of compliance" not in a
+        if missing_detail_block or weak_detail:
+            return True
+
+    return False
+
+
 def _strip_intro(text: str) -> str:
     for p in _INTRO_PATTERNS:
         text = re.sub(p, "", text, flags=re.IGNORECASE | re.MULTILINE).lstrip()
@@ -481,7 +502,7 @@ class LLMClient:
                             model=model,
                         )
 
-                    if _is_low_quality_answer(answer):
+                    if _is_low_quality_answer(answer) or _is_misaligned_answer(user_prompt, answer):
                         quality_retry_messages = [
                             {"role": "system", "content": SYSTEM_PROMPT},
                             {"role": "user", "content": user_prompt},
@@ -490,11 +511,12 @@ class LLMClient:
                                 "role": "user",
                                 "content": (
                                     "Rewrite the answer with higher precision and non-generic engineering detail. "
-                                    "Do not give broad statements. Provide section-level legal requirements, "
-                                    "explicit triggers, concrete compliance evidence, likely FAA scrutiny points, "
-                                    "and private-jet modification context. "
-                                    "Keep headings: Direct Decision, Applicable Regulations (Detailed Law Requirements), "
-                                    "Impact Explanation, Risks / Failure Points, Compliance Approach. "
+                                    "Do not give broad statements. Ensure strict query alignment (for CAR 525 questions, "
+                                    "use CAR 525 framing and section references, not unrelated FAA-only framing). "
+                                    "Provide section-level legal requirements, explicit triggers, concrete compliance evidence, "
+                                    "and scenario-specific certification implications. "
+                                    "Keep headings appropriate to the question type and always include "
+                                    "Applicable Regulations (Detailed Law Requirements). "
                                     "Do not include an Action Steps section."
                                 ),
                             },
