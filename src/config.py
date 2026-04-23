@@ -6,9 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    llm_base_url: str = "https://integrate.api.nvidia.com/v1"
-    llm_api_key: str = ""
-    llm_model: str = "meta/llama-4-maverick-17b-128e-instruct"
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-6"
 
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
