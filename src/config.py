@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     llm_base_url: str = "https://lightning.ai/api/v1"
     llm_api_key: str = ""
-    llm_model: str = "openai/gpt-5.4-2026-03-05"
+    llm_model: str = "deepseek-ai/deepseek-v3-0324"
 
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
