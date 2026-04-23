@@ -195,15 +195,16 @@ class RagPipeline:
         context_block = "\n".join(context_lines) if context_lines else "(No indexed snippets matched — answer entirely from your regulatory knowledge.)"
 
         structure_line = (
-            "- Use a fixed expert structure with headings: Applicable Regulations (Detailed Law Requirements), "
+            "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations, "
             "Interpretation Notes, Certification Risks, Compliance Evidence.\n"
             if mode == "requirements_only"
-            else "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations (Detailed Law Requirements), "
+            else "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations, "
             "Impact Explanation, Risks / Failure Points, Compliance Approach.\n"
         )
 
         opening_line = (
-            "- Start directly with regulation-level requirements; do not force an approval-path decision for this question type.\n"
+            "- Start with a concise Direct Decision, then go directly into regulation-level requirements. "
+            "For this question type, do not force major/minor/STC classification unless the user asks for approval-path classification.\n"
             if mode == "requirements_only"
             else "- Make a certification-quality decision or recommendation first; do not be vague.\n"
         )
@@ -217,7 +218,7 @@ class RagPipeline:
             "Instructions:\n"
             f"{opening_line}"
             f"{structure_line}"
-            "- In Applicable Regulations (Detailed Law Requirements), for each section include: legal status (mandatory vs guidance), exact trigger, concrete obligations (thresholds/conditions/sub-paragraph duties), and expected means of compliance evidence.\n"
+            "- In Applicable Regulations, for each section include: legal status (mandatory vs guidance), exact trigger, concrete obligations (thresholds/conditions/sub-paragraph duties), and expected means of compliance evidence.\n"
             "- For every regulation section mentioned or relevant, explain what it actually requires, not just that it exists. Include loads, thresholds, sub-paragraphs, test criteria, and any practical certification implications where applicable.\n"
             "- If a snippet only references a section without reproducing its text, complete the analysis from your regulatory knowledge and clearly label it as guidance or interpretation when appropriate.\n"
             "- Distinguish mandatory regulations from advisory material, policy, issue papers, special conditions, and project-specific guidance.\n"
@@ -273,8 +274,8 @@ class RagPipeline:
             "- If exact effective date is not in retrieved evidence, use your knowledge and clearly state the source basis.\n"
             "- When the modification touches seats, monuments, exits, floor structure, restraint paths, or interior materials, explicitly address the likely downstream triggers for loads, crashworthiness, egress, and flammability.\n"
             "- Do not use internal citation tokens in the prose; rely on the structured source cards for traceability.\n"
-            "- Return response in structured markdown with headings: Direct Decision, Applicable Regulations (Detailed Law Requirements), Impact Explanation, Risks / Failure Points, Compliance Approach.\n"
-            "- In Applicable Regulations (Detailed Law Requirements), each section must include legal status, trigger logic, explicit obligations, and expected compliance evidence; do not provide a brief law list.\n"
+            "- Return response in structured markdown with headings: Direct Decision, Applicable Regulations, Impact Explanation, Risks / Failure Points, Compliance Approach.\n"
+            "- In Applicable Regulations, each section must include legal status, trigger logic, explicit obligations, and expected compliance evidence; do not provide a brief law list.\n"
             "- Do not include an Action Steps section.\n"
             "- Keep the response specific to the exact private/business-jet scenario and avoid generic template wording."
         )

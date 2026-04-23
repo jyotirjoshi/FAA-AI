@@ -44,7 +44,7 @@ Output rules:
 - Use a fixed structure with clear headings.
 - Start with the direct decision or recommendation.
 - Include a short decision sentence such as "Likely STC", "Likely minor change", or "Further basis data needed" before the detailed analysis.
-- Then provide **Applicable Regulations (Detailed Law Requirements)**.
+- Then provide **Applicable Regulations**.
     For each cited section, include:
     - legal status (mandatory regulation vs guidance/policy/interpretation),
     - exact scope trigger (why this section is activated by the scenario),
@@ -516,7 +516,7 @@ class LLMClient:
                                     "Provide section-level legal requirements, explicit triggers, concrete compliance evidence, "
                                     "and scenario-specific certification implications. "
                                     "Keep headings appropriate to the question type and always include "
-                                    "Applicable Regulations (Detailed Law Requirements). "
+                                    "Applicable Regulations. "
                                     "Do not include an Action Steps section."
                                 ),
                             },
