@@ -56,6 +56,61 @@ class Retriever:
 
         return 0.0
 
+    def _query_hints(self, query: str) -> dict[str, bool]:
+        q = query.lower()
+        return {
+            "mentions_part23": bool(re.search(r"\bpart\s*23\b|\b23\.\d+", q)),
+            "mentions_part25": bool(re.search(r"\bpart\s*25\b|\b25\.\d+|\btype\s*iii\b", q)),
+            "mentions_part121": bool(re.search(r"\bpart\s*121\b|\b121\.\d+", q)),
+            "mentions_part135": bool(re.search(r"\bpart\s*135\b|\b135\.\d+", q)),
+            "private_jet_context": any(
+                token in q
+                for token in ["private jet", "business jet", "corporate jet", "cabin modification", "stc", "interior mod", "divan", "monument"]
+            ),
+        }
+
+    def _part_penalty(self, query: str, chunk) -> float:
+        hints = self._query_hints(query)
+        section_path = (chunk.section_path or "").lower()
+        title = (chunk.title or "").lower()
+        text = f"{section_path} {title}"
+
+        in_part23 = "part 23" in text or re.search(r"\b23\.\d+", text) is not None
+        in_part25 = "part 25" in text or re.search(r"\b25\.\d+", text) is not None
+        in_part121 = "part 121" in text or re.search(r"\b121\.\d+", text) is not None
+        in_part135 = "part 135" in text or re.search(r"\b135\.\d+", text) is not None
+
+        penalty = 0.0
+
+        # Private/business-jet modification queries are usually certification-basis (Part 25/23)
+        # and should not be polluted by airline/operator rules (Part 121/135) unless explicitly asked.
+        if hints["private_jet_context"] or hints["mentions_part25"]:
+            if in_part121 and not hints["mentions_part121"]:
+                penalty -= 0.28
+            if in_part135 and not hints["mentions_part135"]:
+                penalty -= 0.22
+
+        if hints["mentions_part25"]:
+            if in_part23 and not hints["mentions_part23"]:
+                penalty -= 0.20
+            if in_part25:
+                penalty += 0.06
+
+        if hints["mentions_part23"]:
+            if in_part25 and not hints["mentions_part25"]:
+                penalty -= 0.20
+            if in_part23:
+                penalty += 0.06
+
+        return penalty
+
+    def _section_key(self, chunk) -> str:
+        text = f"{chunk.section_path or ''} {chunk.title or ''}".lower()
+        match = re.search(r"\b((?:23|25|121|135)\.\d+[a-z]?)\b", text)
+        if match:
+            return match.group(1)
+        return chunk.chunk_id
+
     def _extract_cited_sections(self, query: str) -> list[str]:
         # Captures forms like "25.613" and "§25.613" from user questions.
         matches = re.findall(r"(?:§\s*)?(25\.\d+[a-z]?)", query, flags=re.IGNORECASE)
@@ -136,13 +191,32 @@ class Retriever:
             adjusted = item.score + self._version_bonus(item.chunk.issue_date, hint.requested_date)
             adjusted += self._source_bonus(item.chunk.source_id, query)
             adjusted += self._chunk_bonus(query, item.chunk)
+            adjusted += self._part_penalty(query, item.chunk)
             scored.append(RetrievedChunk(chunk=item.chunk, score=adjusted))
 
         scored.sort(key=lambda item: item.score, reverse=True)
-        filtered = [r for r in scored[:k] if r.score >= settings.min_relevance]
+
+        # De-duplicate by regulation section so top_k doesn't get consumed by near-identical variants.
+        deduped: list[RetrievedChunk] = []
+        seen_keys: set[str] = set()
+        for item in scored:
+            key = self._section_key(item.chunk)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            deduped.append(item)
+            if len(deduped) >= candidate_k:
+                break
+
+        hints = self._query_hints(query)
+        dynamic_min_relevance = settings.min_relevance
+        if hints["private_jet_context"] or hints["mentions_part25"] or hints["mentions_part23"]:
+            dynamic_min_relevance = max(settings.min_relevance, 0.24)
+
+        filtered = [r for r in deduped[:k] if r.score >= dynamic_min_relevance]
         if filtered:
             return filtered
 
         # Fallback: do not return empty context; keep best candidates for grounding.
-        fallback_count = min(max(4, k // 2), len(scored))
-        return scored[:fallback_count]
+        fallback_count = min(max(4, k // 2), len(deduped))
+        return deduped[:fallback_count]
