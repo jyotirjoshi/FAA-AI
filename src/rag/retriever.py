@@ -56,65 +56,76 @@ class Retriever:
 
         return 0.0
 
-    def _query_hints(self, query: str) -> dict[str, bool]:
+    def _query_flags(self, query: str) -> dict[str, bool]:
         q = query.lower()
         return {
-            "mentions_part23": bool(re.search(r"\bpart\s*23\b|\b23\.\d+", q)),
-            "mentions_part25": bool(re.search(r"\bpart\s*25\b|\b25\.\d+|\btype\s*iii\b", q)),
-            "mentions_part121": bool(re.search(r"\bpart\s*121\b|\b121\.\d+", q)),
-            "mentions_part135": bool(re.search(r"\bpart\s*135\b|\b135\.\d+", q)),
+            "space_context": any(token in q for token in ["launch", "reentry", "rlv", "spaceport", "permittee"]),
             "private_jet_context": any(
                 token in q
-                for token in ["private jet", "business jet", "corporate jet", "cabin modification", "stc", "interior mod", "divan", "monument"]
+                for token in [
+                    "private jet",
+                    "business jet",
+                    "cabin",
+                    "interior",
+                    "divan",
+                    "monument",
+                    "stc",
+                    "oda",
+                    "der",
+                    "type iii",
+                    "emergency exit",
+                ]
             ),
+            "elos_context": "equivalent level of safety" in q or "elos" in q,
         }
 
-    def _part_penalty(self, query: str, chunk) -> float:
-        hints = self._query_hints(query)
-        section_path = (chunk.section_path or "").lower()
-        title = (chunk.title or "").lower()
-        text = f"{section_path} {title}"
+    def _extract_part_number(self, section_path: str) -> int | None:
+        match = re.search(r"part\s+(\d+)", section_path, flags=re.IGNORECASE)
+        if not match:
+            return None
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
 
-        in_part23 = "part 23" in text or re.search(r"\b23\.\d+", text) is not None
-        in_part25 = "part 25" in text or re.search(r"\b25\.\d+", text) is not None
-        in_part121 = "part 121" in text or re.search(r"\b121\.\d+", text) is not None
-        in_part135 = "part 135" in text or re.search(r"\b135\.\d+", text) is not None
+    def _part_bonus(self, query: str, section_path: str, source_id: str) -> float:
+        flags = self._query_flags(query)
+        if flags["space_context"]:
+            return 0.0
 
-        penalty = 0.0
+        part = self._extract_part_number(section_path)
+        if part is None:
+            return 0.0
 
-        # Private/business-jet modification queries are usually certification-basis (Part 25/23)
-        # and should not be polluted by airline/operator rules (Part 121/135) unless explicitly asked.
-        if hints["private_jet_context"] or hints["mentions_part25"]:
-            if in_part121 and not hints["mentions_part121"]:
-                penalty -= 0.28
-            if in_part135 and not hints["mentions_part135"]:
-                penalty -= 0.22
+        # Strongly prefer certification parts used in private/business jet modifications.
+        preferred_parts = {21, 23, 25, 26, 27, 29, 39, 43, 91, 121, 125, 129, 135, 145}
+        if flags["private_jet_context"] or flags["elos_context"]:
+            if part in preferred_parts:
+                return 0.08
+            if part >= 400:
+                return -0.35
+            if part in {5, 31, 401, 413, 414, 415, 417, 431, 437}:
+                return -0.30
 
-        if hints["mentions_part25"]:
-            if in_part23 and not hints["mentions_part23"]:
-                penalty -= 0.20
-            if in_part25:
-                penalty += 0.06
+        # Generic FAA certification asks should still suppress space-launch parts.
+        if any(token in query.lower() for token in ["faa", "cfr", "part 25", "certification"]):
+            if part >= 400:
+                return -0.28
 
-        if hints["mentions_part23"]:
-            if in_part25 and not hints["mentions_part25"]:
-                penalty -= 0.20
-            if in_part23:
-                penalty += 0.06
-
-        return penalty
-
-    def _section_key(self, chunk) -> str:
-        text = f"{chunk.section_path or ''} {chunk.title or ''}".lower()
-        match = re.search(r"\b((?:23|25|121|135)\.\d+[a-z]?)\b", text)
-        if match:
-            return match.group(1)
-        return chunk.chunk_id
+        return 0.0
 
     def _extract_cited_sections(self, query: str) -> list[str]:
-        # Captures forms like "25.613" and "§25.613" from user questions.
-        matches = re.findall(r"(?:§\s*)?(25\.\d+[a-z]?)", query, flags=re.IGNORECASE)
-        return sorted({m.lower() for m in matches})
+        # Captures forms like "25.613", "21.21", and "§25.613" from user questions.
+        matches = re.findall(r"(?:§\s*)?((?:\d{1,3})\.\d+[a-z]?)", query, flags=re.IGNORECASE)
+        sections = {m.lower() for m in matches}
+
+        q = query.lower()
+        if "equivalent level of safety" in q or "elos" in q:
+            sections.update({"21.21", "21.101"})
+        if "stc" in q or "supplemental type certificate" in q:
+            sections.update({"21.113", "21.115", "21.117", "21.120"})
+
+        return sorted(sections)
 
     def _chunk_bonus(self, query: str, chunk) -> float:
         score = 0.0
@@ -138,6 +149,8 @@ class Retriever:
 
         if "amendment" in q and chunk.source_id == "faa_far_part25":
             score += 0.12
+
+        score += self._part_bonus(query, chunk.section_path or "", chunk.source_id)
 
         # Advisory search listing pages are broad index pages and tend to outrank true regulatory text.
         if chunk.source_id == "faa_advisory_circulars":
@@ -191,32 +204,13 @@ class Retriever:
             adjusted = item.score + self._version_bonus(item.chunk.issue_date, hint.requested_date)
             adjusted += self._source_bonus(item.chunk.source_id, query)
             adjusted += self._chunk_bonus(query, item.chunk)
-            adjusted += self._part_penalty(query, item.chunk)
             scored.append(RetrievedChunk(chunk=item.chunk, score=adjusted))
 
         scored.sort(key=lambda item: item.score, reverse=True)
-
-        # De-duplicate by regulation section so top_k doesn't get consumed by near-identical variants.
-        deduped: list[RetrievedChunk] = []
-        seen_keys: set[str] = set()
-        for item in scored:
-            key = self._section_key(item.chunk)
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-            deduped.append(item)
-            if len(deduped) >= candidate_k:
-                break
-
-        hints = self._query_hints(query)
-        dynamic_min_relevance = settings.min_relevance
-        if hints["private_jet_context"] or hints["mentions_part25"] or hints["mentions_part23"]:
-            dynamic_min_relevance = max(settings.min_relevance, 0.24)
-
-        filtered = [r for r in deduped[:k] if r.score >= dynamic_min_relevance]
+        filtered = [r for r in scored[:k] if r.score >= settings.min_relevance]
         if filtered:
             return filtered
 
         # Fallback: do not return empty context; keep best candidates for grounding.
-        fallback_count = min(max(4, k // 2), len(deduped))
-        return deduped[:fallback_count]
+        fallback_count = min(max(4, k // 2), len(scored))
+        return scored[:fallback_count]

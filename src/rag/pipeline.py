@@ -178,13 +178,14 @@ class RagPipeline:
             "- For every regulation section mentioned or relevant, explain what it actually requires, not just that it exists. Include loads, thresholds, sub-paragraphs, test criteria, and any practical certification implications where applicable.\n"
             "- If a snippet only references a section without reproducing its text, complete the analysis from your regulatory knowledge and clearly label it as guidance or interpretation when appropriate.\n"
             "- Distinguish mandatory regulations from advisory material, policy, issue papers, special conditions, and project-specific guidance.\n"
-            "- Do not mix unrelated regulatory parts. If the query is primarily Part 25/23 certification, do not treat Part 121/135 operational rules as primary unless explicitly requested; place them under a clearly marked conditional note if relevant.\n"
             "- Resolve overlaps and ambiguities using certification basis, regulatory hierarchy, and equivalent level of safety reasoning where needed.\n"
             "- Do not use internal citation tokens in the prose; the UI shows source cards separately.\n"
             "- Avoid hedging language. If evidence is incomplete, state the gap and still give the best defensible certification answer.\n"
             "- Keep the answer practical enough for an engineer, DER, or ODA reviewer to act on immediately.\n"
             "- Do not provide a short generic law list; provide section-level legal detail with implementation-ready depth.\n"
-            "- Focus the reasoning for private/business-jet modification programs so engineering teams can execute without additional searching."
+            "- Focus the reasoning for private/business-jet modification programs so engineering teams can execute without additional searching.\n"
+            "- Do not include an Action Steps section.\n"
+            "- Do not use generic wording; make the output scenario-specific and certification-basis-specific."
         )
         return prompt, citations
 
@@ -223,7 +224,6 @@ class RagPipeline:
             "- Map the request to affected domains: structure, loads, crashworthiness, egress, flammability/fire, electrical/system safety, and human factors when relevant.\n"
             "- List candidate sections affected by this renovation with rationale, including what each section actually requires and why it is triggered.\n"
             "- Call out advisory and interpretation material separately from mandatory CFR requirements.\n"
-            "- Keep certification-basis rules primary. Do not elevate Part 121/135 operational rules unless the operator context explicitly requires them; if mentioned, mark them as conditional applicability.\n"
             "- For any section referenced in the snippets but without full text, explain the actual requirements from your regulatory knowledge and mark guidance versus mandatory rules.\n"
             "- Include effective date / historical version considerations for each section.\n"
             f"- If multiple issue dates are present, explain what changed between the historical and current versions.{' If the user specifically asks what changed, present the comparison as a short delta list.' if version_hint.wants_change_summary else ''}\n"
@@ -231,7 +231,9 @@ class RagPipeline:
             "- When the modification touches seats, monuments, exits, floor structure, restraint paths, or interior materials, explicitly address the likely downstream triggers for loads, crashworthiness, egress, and flammability.\n"
             "- Do not use internal citation tokens in the prose; rely on the structured source cards for traceability.\n"
             "- Return response in structured markdown with headings: Direct Decision, Applicable Regulations (Detailed Law Requirements), Impact Explanation, Risks / Failure Points, Compliance Approach.\n"
-            "- In Applicable Regulations (Detailed Law Requirements), each section must include legal status, trigger logic, explicit obligations, and expected compliance evidence; do not provide a brief law list."
+            "- In Applicable Regulations (Detailed Law Requirements), each section must include legal status, trigger logic, explicit obligations, and expected compliance evidence; do not provide a brief law list.\n"
+            "- Do not include an Action Steps section.\n"
+            "- Keep the response specific to the exact private/business-jet scenario and avoid generic template wording."
         )
         return prompt, citations
 

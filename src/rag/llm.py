@@ -55,6 +55,8 @@ Output rules:
 - Then list risks, failure points, and likely FAA/DER questions.
 - Then give the compliance approach with tests, analyses, demonstrations, and documents.
 - Tailor the compliance approach to private/business-jet modification programs (cabin reconfiguration, seating changes, monument/galley/lav updates, avionics/interior/electrical changes).
+- Do NOT include an Action Steps section.
+- Do not use generic boilerplate. Tie every major statement to the actual aircraft-modification scenario and affected certification basis.
 - Do not provide a short or generic law list; include section-level detail sufficient for implementation.
 - Keep the response traceable and professional.
 - Use plain-language references in the answer; do not use internal citation tokens in the prose.
