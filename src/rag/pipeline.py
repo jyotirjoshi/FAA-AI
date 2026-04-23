@@ -229,6 +229,31 @@ class RagPipeline:
         )
         return prompt, citations
 
+    # ── Streaming (used by /chat/stream SSE endpoint) ──
+
+    async def stream_answer_async(self, question: str, history: list[dict] | None = None):
+        """Yields ('text', str) chunks, then ('done', metadata_dict) or ('error', str)."""
+        retrieved = self.retriever.retrieve(question)
+        prompt, citations = self._build_answer_prompt(question, retrieved)
+        full_text: list[str] = []
+
+        async for chunk_type, data in self.llm.stream_async(prompt, history=history):
+            if chunk_type == "text":
+                full_text.append(data)
+                yield "text", data
+            elif chunk_type == "error":
+                yield "error", data
+                return
+
+        answer = "".join(full_text)
+        best = max((c["score"] for c in citations), default=0.0)
+        yield "done", {
+            "answer": answer,
+            "citations": citations,
+            "confidence": min(float(best), 1.0),
+            "grounded": bool(answer and len(answer.strip()) > 20),
+        }
+
     # ── Async (used by FastAPI endpoints) ──
 
     async def answer_async(

@@ -1,10 +1,11 @@
 from pathlib import Path
+import json
 import logging
 import traceback
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -162,6 +163,66 @@ async def chat(payload: ChatRequest) -> dict:
             "session_id": payload.session_id,
             "error": str(exc),
         }
+
+
+@app.post("/chat/stream")
+async def chat_stream(payload: ChatRequest):
+    try:
+        ensure_index_loaded()
+
+        session_id = payload.session_id
+        if session_id:
+            if not await db.session_exists(session_id):
+                session_id = await db.create_session()
+        else:
+            session_id = await db.create_session()
+
+        history = await db.get_history(session_id, limit=6)
+        llm_history = [{"role": m["role"], "content": m["content"]} for m in history]
+
+        retriever = Retriever(store)
+        llm = LLMClient()
+        pipeline = RagPipeline(retriever, llm)
+
+        async def generate():
+            full_text: list[str] = []
+            try:
+                async for chunk_type, data in pipeline.stream_answer_async(
+                    payload.question, history=llm_history
+                ):
+                    if chunk_type == "text":
+                        full_text.append(data)
+                        yield f"data: {json.dumps({'type': 'text', 'text': data})}\n\n"
+                    elif chunk_type == "done":
+                        answer = "".join(full_text)
+                        await db.save_message(session_id, "user", payload.question)
+                        await db.save_message(
+                            session_id, "assistant", answer,
+                            citations=data["citations"],
+                            confidence=data["confidence"],
+                        )
+                        event = {
+                            "type": "done",
+                            "citations": data["citations"],
+                            "confidence": data["confidence"],
+                            "grounded": data["grounded"],
+                            "session_id": session_id,
+                        }
+                        yield f"data: {json.dumps(event)}\n\n"
+                    elif chunk_type == "error":
+                        yield f"data: {json.dumps({'type': 'error', 'message': data})}\n\n"
+            except Exception as exc:
+                traceback.print_exc()
+                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/compliance-plan")

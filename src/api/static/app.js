@@ -385,46 +385,74 @@ async function send() {
   const typingEl = appendTypingIndicator();
   const sessionId = await ensureSession();
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 55000);
+  let fullText = '';
+  let streamBubble = null;
 
   try {
-    const res = await fetch('/chat', {
+    const response = await fetch('/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, session_id: sessionId }),
-      signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
-    let data;
-    try {
-      data = await res.json();
-    } catch {
-      data = { answer: 'Server returned a non-JSON response.', citations: [], confidence: 0, grounded: false };
-    }
-
-    // Update session id from server response (in case server created a new one)
-    if (data.session_id) {
-      currentSessionId = data.session_id;
-      localStorage.setItem('airwise_session_id', currentSessionId);
-    }
-
-    if (!res.ok) {
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
       typingEl.remove();
-      appendErrorMessage(`HTTP ${res.status}: ${data.answer || 'Server error.'}`);
-    } else {
-      replaceTypingWithAnswer(typingEl, data);
+      appendErrorMessage(`HTTP ${response.status}: ${data.detail || 'Server error.'}`);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+
+        let event;
+        try { event = JSON.parse(raw); } catch { continue; }
+
+        if (event.type === 'text') {
+          fullText += event.text;
+          if (!streamBubble) {
+            typingEl.innerHTML = '<div class="bubble-assistant"><div class="streaming-text"></div></div>';
+            streamBubble = typingEl.querySelector('.streaming-text');
+          }
+          streamBubble.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
+          scrollToBottom();
+
+        } else if (event.type === 'done') {
+          if (event.session_id) {
+            currentSessionId = event.session_id;
+            localStorage.setItem('airwise_session_id', currentSessionId);
+          }
+          replaceTypingWithAnswer(typingEl, {
+            answer: fullText,
+            citations: event.citations || [],
+            confidence: event.confidence || 0,
+            grounded: event.grounded || false,
+            error: null,
+          });
+
+        } else if (event.type === 'error') {
+          typingEl.remove();
+          appendErrorMessage(event.message || 'An error occurred.');
+        }
+      }
     }
   } catch (err) {
-    clearTimeout(timeoutId);
     typingEl.remove();
-    if (err.name === 'AbortError') {
-      appendErrorMessage('The request timed out — the model is taking too long. Please try again.');
-    } else {
-      appendErrorMessage('Request failed. Please try again.');
-    }
+    appendErrorMessage('Request failed. Please try again.');
   } finally {
     setLoading(false);
   }

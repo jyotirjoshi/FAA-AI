@@ -124,10 +124,7 @@ class LLMClient:
             raise RuntimeError("Anthropic response contained no text content.")
         return answer
 
-    async def chat_async(self, user_prompt: str, history: list[dict] | None = None) -> str:
-        if not self.api_key:
-            return "LLM is not configured. Set ANTHROPIC_API_KEY in your HuggingFace Space secrets."
-
+    def _build_messages(self, user_prompt: str, history: list[dict] | None) -> list[dict]:
         messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
         for turn in history or []:
             role = turn.get("role", "user")
@@ -135,6 +132,68 @@ class LLMClient:
             if role in {"user", "assistant"} and content:
                 messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": user_prompt})
+        return messages
+
+    async def stream_async(self, user_prompt: str, history: list[dict] | None = None):
+        """Yields ('text', str) chunks then ('done', None) or ('error', str)."""
+        import json as _json
+
+        if not self.api_key:
+            yield "error", "LLM not configured. Set ANTHROPIC_API_KEY in HuggingFace Space secrets."
+            return
+
+        messages = self._build_messages(user_prompt, history)
+        system_text = "\n\n".join(
+            str(m.get("content", "")) for m in messages if m.get("role") == "system"
+        ).strip()
+        turns = [m for m in messages if m.get("role") in {"user", "assistant"}]
+        anthropic_messages = [
+            {"role": m["role"], "content": [{"type": "text", "text": str(m.get("content", ""))}]}
+            for m in turns
+        ]
+        payload = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "temperature": 0.0,
+            "stream": True,
+            "messages": anthropic_messages,
+            "system": system_text,
+        }
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=_CALL_TIMEOUT) as client:
+                async with client.stream(
+                    "POST", "https://api.anthropic.com/v1/messages",
+                    json=payload, headers=headers
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        raw = line[6:].strip()
+                        if not raw:
+                            continue
+                        try:
+                            event = _json.loads(raw)
+                        except _json.JSONDecodeError:
+                            continue
+                        if event.get("type") == "content_block_delta":
+                            delta = event.get("delta", {})
+                            if delta.get("type") == "text_delta" and delta.get("text"):
+                                yield "text", delta["text"]
+            yield "done", None
+        except Exception as exc:  # noqa: BLE001
+            yield "error", str(exc)
+
+    async def chat_async(self, user_prompt: str, history: list[dict] | None = None) -> str:
+        if not self.api_key:
+            return "LLM is not configured. Set ANTHROPIC_API_KEY in your HuggingFace Space secrets."
+
+        messages = self._build_messages(user_prompt, history)
 
         async with httpx.AsyncClient(timeout=_CALL_TIMEOUT) as client:
             try:
