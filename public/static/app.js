@@ -51,7 +51,7 @@ let currentSessionId = localStorage.getItem('airwise_session_id') || null;
 async function ensureSession() {
   if (currentSessionId) return currentSessionId;
   try {
-    const res = await fetch('/sessions', { method: 'POST' });
+    const res = await fetch(`${API_BASE}/sessions`, { method: 'POST' });
     const data = await res.json();
     currentSessionId = data.session_id;
     localStorage.setItem('airwise_session_id', currentSessionId);
@@ -333,7 +333,7 @@ document.addEventListener('keydown', event => {
 async function loadHistory() {
   if (!currentSessionId) return;
   try {
-    const res = await fetch(`/sessions/${currentSessionId}/history`);
+    const res = await fetch(`${API_BASE}/sessions/${currentSessionId}/history`);
     if (!res.ok) { startNewSession(); return; }
     const data = await res.json();
     const messages = data.messages || [];
@@ -363,6 +363,13 @@ async function loadHistory() {
   }
 }
 
+// ── API base: use HuggingFace directly when not on HF (e.g. Vercel) ──
+// Vercel's proxy buffers SSE streams, breaking streaming and causing timeouts.
+// Calling HF directly bypasses the proxy — CORS is open on the backend.
+const API_BASE = window.location.hostname.endsWith('.hf.space')
+  ? ''
+  : 'https://jyotir1-airwise.hf.space';
+
 // ── Main send function ──
 async function send() {
   if (isLoading) return;
@@ -389,7 +396,7 @@ async function send() {
   let streamBubble = null;
 
   try {
-    const response = await fetch('/chat/stream', {
+    const response = await fetch(`${API_BASE}/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, session_id: sessionId }),
