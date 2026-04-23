@@ -1,10 +1,13 @@
 {
-  "version": 2,
-  "framework": null,
-  "outputDirectory": "public",
-  "buildCommand": "",
-  "installCommand": "",
   "rewrites": [
+    {
+      "source": "/chat/stream",
+      "destination": "https://jyotir1-airwise.hf.space/chat/stream"
+    },
+    {
+      "source": "/chat",
+      "destination": "https://jyotir1-airwise.hf.space/chat"
+    },
     {
       "source": "/sessions",
       "destination": "https://jyotir1-airwise.hf.space/sessions"
@@ -14,16 +17,8 @@
       "destination": "https://jyotir1-airwise.hf.space/sessions/:path*"
     },
     {
-      "source": "/chat",
-      "destination": "https://jyotir1-airwise.hf.space/chat"
-    },
-    {
       "source": "/compliance-plan",
       "destination": "https://jyotir1-airwise.hf.space/compliance-plan"
-    },
-    {
-      "source": "/health",
-      "destination": "https://jyotir1-airwise.hf.space/health"
     }
   ]
 }
