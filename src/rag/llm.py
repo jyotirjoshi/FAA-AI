@@ -44,20 +44,11 @@ Output rules:
 - Use a fixed structure with clear headings.
 - Start with the direct decision or recommendation.
 - Include a short decision sentence such as "Likely STC", "Likely minor change", or "Further basis data needed" before the detailed analysis.
-- Then provide **Applicable Regulations**.
-    For each cited section, include:
-    - legal status (mandatory regulation vs guidance/policy/interpretation),
-    - exact scope trigger (why this section is activated by the scenario),
-    - specific legal requirements (conditions, thresholds, sub-paragraph obligations),
-    - required means of compliance (test/analysis/inspection/demo),
-    - common certification evidence expected by FAA/DER/ODA.
+- Then list the applicable regulations and whether each one is mandatory or guidance.
 - Then explain the impact/why each regulation applies.
 - Then list risks, failure points, and likely FAA/DER questions.
 - Then give the compliance approach with tests, analyses, demonstrations, and documents.
-- Tailor the compliance approach to private/business-jet modification programs (cabin reconfiguration, seating changes, monument/galley/lav updates, avionics/interior/electrical changes).
-- Do NOT include an Action Steps section.
-- Do not use generic boilerplate. Tie every major statement to the actual aircraft-modification scenario and affected certification basis.
-- Do not provide a short or generic law list; include section-level detail sufficient for implementation.
+- Then give ordered action steps.
 - Keep the response traceable and professional.
 - Use plain-language references in the answer; do not use internal citation tokens in the prose.
     The source list is handled separately by the application UI.
@@ -76,16 +67,6 @@ _REFUSAL_PATTERNS = [
     r"not able to answer",
 ]
 
-_GENERIC_PATTERNS = [
-    r"it depends on (the )?specific",
-    r"consult (the )?(faa|authority|applicant)",
-    r"additional analysis may be required",
-    r"further review is needed",
-    r"consider applicable regulations",
-    r"as applicable",
-    r"generally speaking",
-]
-
 _INTRO_PATTERNS = [
     r"^(As |I am |I'm )(an? )?(AI|language model|assistant|GLM|chatbot)[^.]*\.",
     r"^(Hello|Hi)[!,]?\s+(I('m| am)|my name is)[^.]*\.",
@@ -102,47 +83,6 @@ _CALL_TIMEOUT = 25
 def _is_refusal(text: str) -> bool:
     lower = text.lower()
     return any(re.search(p, lower) for p in _REFUSAL_PATTERNS)
-
-
-def _is_low_quality_answer(text: str) -> bool:
-    lower = text.lower()
-
-    # Require substantive structure and depth, not generic short replies.
-    required_markers = [
-        "direct decision",
-        "applicable regulations",
-        "impact",
-        "risks",
-        "compliance approach",
-    ]
-    has_structure = sum(1 for m in required_markers if m in lower) >= 3
-    too_short = len(text.strip()) < 1200
-
-    generic_hits = sum(1 for p in _GENERIC_PATTERNS if re.search(p, lower))
-    overly_generic = generic_hits >= 2
-
-    return (too_short and not has_structure) or overly_generic
-
-
-def _is_misaligned_answer(user_prompt: str, answer: str) -> bool:
-    q = (user_prompt or "").lower()
-    a = (answer or "").lower()
-
-    asks_car_525 = any(token in q for token in ["car 525", "chapter 525", "525."])
-    if asks_car_525:
-        mentions_525 = ("car 525" in a) or ("525." in a)
-        heavy_faa = ("14 cfr" in a) and (a.count("14 cfr") >= 2)
-        if (not mentions_525) or (heavy_faa and not mentions_525):
-            return True
-
-    asks_requirements = any(token in q for token in ["requirements", "what are the regulatory requirements", "what does"]) 
-    if asks_requirements:
-        missing_detail_block = "applicable regulations" not in a
-        weak_detail = "legal status" not in a or "means of compliance" not in a
-        if missing_detail_block or weak_detail:
-            return True
-
-    return False
 
 
 def _strip_intro(text: str) -> str:
@@ -495,34 +435,6 @@ class LLMClient:
                         ]
                         answer = await self._call_async(
                             retry_messages,
-                            client,
-                            provider_name=provider_name,
-                            base_url=base_url,
-                            api_key=api_key,
-                            model=model,
-                        )
-
-                    if _is_low_quality_answer(answer) or _is_misaligned_answer(user_prompt, answer):
-                        quality_retry_messages = [
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": user_prompt},
-                            {"role": "assistant", "content": answer},
-                            {
-                                "role": "user",
-                                "content": (
-                                    "Rewrite the answer with higher precision and non-generic engineering detail. "
-                                    "Do not give broad statements. Ensure strict query alignment (for CAR 525 questions, "
-                                    "use CAR 525 framing and section references, not unrelated FAA-only framing). "
-                                    "Provide section-level legal requirements, explicit triggers, concrete compliance evidence, "
-                                    "and scenario-specific certification implications. "
-                                    "Keep headings appropriate to the question type and always include "
-                                    "Applicable Regulations. "
-                                    "Do not include an Action Steps section."
-                                ),
-                            },
-                        ]
-                        answer = await self._call_async(
-                            quality_retry_messages,
                             client,
                             provider_name=provider_name,
                             base_url=base_url,

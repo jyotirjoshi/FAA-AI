@@ -34,11 +34,11 @@ class Retriever:
 
     def _source_bonus(self, source_id: str, query: str) -> float:
         text = query.lower()
-        if any(token in text for token in ["car 525", "car525", "chapter 525", "transport canada", "canadian aviation"]):
+        if any(token in text for token in ["car 525", "transport canada", "canadian aviation"]):
             if source_id == "tc_car_525":
-                return 0.22
+                return 0.10
             if source_id.startswith("faa_ecfr"):
-                return -0.08
+                return -0.03
 
         if any(token in text for token in ["part 25", "part 21", "title 14", "cfr", "federal aviation administration", "faa"]):
             if source_id == "faa_ecfr_title14_full":
@@ -56,85 +56,10 @@ class Retriever:
 
         return 0.0
 
-    def _query_flags(self, query: str) -> dict[str, bool]:
-        q = query.lower()
-        return {
-            "space_context": any(token in q for token in ["launch", "reentry", "rlv", "spaceport", "permittee"]),
-            "tc_context": any(token in q for token in ["car 525", "car525", "chapter 525", "transport canada", "tcca"]),
-            "private_jet_context": any(
-                token in q
-                for token in [
-                    "private jet",
-                    "business jet",
-                    "cabin",
-                    "interior",
-                    "divan",
-                    "monument",
-                    "stc",
-                    "oda",
-                    "der",
-                    "type iii",
-                    "emergency exit",
-                ]
-            ),
-            "elos_context": "equivalent level of safety" in q or "elos" in q,
-        }
-
-    def _extract_part_number(self, section_path: str) -> int | None:
-        match = re.search(r"part\s+(\d+)", section_path, flags=re.IGNORECASE)
-        if not match:
-            return None
-        try:
-            return int(match.group(1))
-        except ValueError:
-            return None
-
-    def _part_bonus(self, query: str, section_path: str, source_id: str) -> float:
-        flags = self._query_flags(query)
-        if flags["space_context"]:
-            return 0.0
-
-        part = self._extract_part_number(section_path)
-        if part is None:
-            return 0.0
-
-        if part >= 400 and not flags["space_context"]:
-            return -0.35
-
-        # Strongly prefer certification parts used in private/business jet modifications.
-        preferred_parts = {21, 23, 25, 26, 27, 29, 39, 43, 91, 121, 125, 129, 135, 145}
-        if flags["private_jet_context"] or flags["elos_context"]:
-            if part in preferred_parts:
-                return 0.08
-            if part in {5, 31, 401, 413, 414, 415, 417, 431, 437}:
-                return -0.30
-
-        if flags["tc_context"]:
-            if chunk_source := (source_id or ""):
-                if chunk_source == "tc_car_525":
-                    return 0.10
-                if "faa_" in chunk_source:
-                    return -0.06
-
-        # Generic FAA certification asks should still suppress space-launch parts.
-        if any(token in query.lower() for token in ["faa", "cfr", "part 25", "certification"]):
-            if part >= 400:
-                return -0.28
-
-        return 0.0
-
     def _extract_cited_sections(self, query: str) -> list[str]:
-        # Captures forms like "25.613", "21.21", and "§25.613" from user questions.
-        matches = re.findall(r"(?:§\s*)?((?:\d{1,3})\.\d+[a-z]?)", query, flags=re.IGNORECASE)
-        sections = {m.lower() for m in matches}
-
-        q = query.lower()
-        if "equivalent level of safety" in q or "elos" in q:
-            sections.update({"21.21", "21.101"})
-        if "stc" in q or "supplemental type certificate" in q:
-            sections.update({"21.113", "21.115", "21.117", "21.120"})
-
-        return sorted(sections)
+        # Captures forms like "25.613" and "§25.613" from user questions.
+        matches = re.findall(r"(?:§\s*)?(25\.\d+[a-z]?)", query, flags=re.IGNORECASE)
+        return sorted({m.lower() for m in matches})
 
     def _chunk_bonus(self, query: str, chunk) -> float:
         score = 0.0
@@ -159,8 +84,6 @@ class Retriever:
         if "amendment" in q and chunk.source_id == "faa_far_part25":
             score += 0.12
 
-        score += self._part_bonus(query, chunk.section_path or "", chunk.source_id)
-
         # Advisory search listing pages are broad index pages and tend to outrank true regulatory text.
         if chunk.source_id == "faa_advisory_circulars":
             if "search results" in section_path or "search results" in title:
@@ -175,8 +98,6 @@ class Retriever:
         if not cited_sections:
             return []
 
-        flags = self._query_flags(query)
-
         candidates: list[RetrievedChunk] = []
         for chunk in self.store.chunks:
             section_path = (chunk.section_path or "").lower()
@@ -188,8 +109,6 @@ class Retriever:
             score = 0.60
             if chunk.source_id in {"faa_ecfr_title14_full", "faa_ecfr_part25_fallback", "faa_far_part25"}:
                 score += 0.14
-            if flags["tc_context"] and chunk.source_id == "tc_car_525":
-                score += 0.18
             if "section" in section_path or "part 25" in section_path:
                 score += 0.06
 

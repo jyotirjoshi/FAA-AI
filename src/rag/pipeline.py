@@ -152,37 +152,8 @@ class RagPipeline:
         self.retriever = retriever
         self.llm = llm
 
-    def _question_mode(self, question: str) -> str:
-        q = (question or "").lower()
-        requirements_markers = [
-            "what are the regulatory requirements",
-            "regulatory requirements",
-            "requirements for",
-            "what does",
-            "explain",
-            "car 525",
-            "chapter 525",
-            "25.811",
-            "25.812",
-            "525.811",
-            "525.812",
-        ]
-        approval_markers = [
-            "is this major or minor",
-            "major or minor",
-            "stc",
-            "approval path",
-            "amended tc",
-            "equivalent level of safety",
-            "elos",
-        ]
-        if any(m in q for m in requirements_markers) and not any(m in q for m in approval_markers):
-            return "requirements_only"
-        return "decision"
-
     def _build_answer_prompt(self, question: str, retrieved: list) -> tuple[str, list[dict]]:
         version_hint = build_query_version_hint(question)
-        mode = self._question_mode(question)
         context_lines: list[str] = []
         citations: list[dict] = []
         for idx, item in enumerate(retrieved, start=1):
@@ -194,21 +165,6 @@ class RagPipeline:
 
         context_block = "\n".join(context_lines) if context_lines else "(No indexed snippets matched — answer entirely from your regulatory knowledge.)"
 
-        structure_line = (
-            "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations, "
-            "Interpretation Notes, Certification Risks, Compliance Evidence.\n"
-            if mode == "requirements_only"
-            else "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations, "
-            "Impact Explanation, Risks / Failure Points, Compliance Approach.\n"
-        )
-
-        opening_line = (
-            "- Start with a concise Direct Decision, then go directly into regulation-level requirements. "
-            "For this question type, do not force major/minor/STC classification unless the user asks for approval-path classification.\n"
-            if mode == "requirements_only"
-            else "- Make a certification-quality decision or recommendation first; do not be vague.\n"
-        )
-
         prompt = (
             "Question:\n"
             f"{question}\n\n"
@@ -216,20 +172,15 @@ class RagPipeline:
             "Context snippets (use as primary source for the source cards):\n"
             f"{context_block}\n\n"
             "Instructions:\n"
-            f"{opening_line}"
-            f"{structure_line}"
-            "- In Applicable Regulations, for each section include: legal status (mandatory vs guidance), exact trigger, concrete obligations (thresholds/conditions/sub-paragraph duties), and expected means of compliance evidence.\n"
+            "- Make a certification-quality decision or recommendation first; do not be vague.\n"
+            "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations, Impact Explanation, Risks / Failure Points, Compliance Approach, Action Steps.\n"
             "- For every regulation section mentioned or relevant, explain what it actually requires, not just that it exists. Include loads, thresholds, sub-paragraphs, test criteria, and any practical certification implications where applicable.\n"
             "- If a snippet only references a section without reproducing its text, complete the analysis from your regulatory knowledge and clearly label it as guidance or interpretation when appropriate.\n"
             "- Distinguish mandatory regulations from advisory material, policy, issue papers, special conditions, and project-specific guidance.\n"
             "- Resolve overlaps and ambiguities using certification basis, regulatory hierarchy, and equivalent level of safety reasoning where needed.\n"
             "- Do not use internal citation tokens in the prose; the UI shows source cards separately.\n"
             "- Avoid hedging language. If evidence is incomplete, state the gap and still give the best defensible certification answer.\n"
-            "- Keep the answer practical enough for an engineer, DER, or ODA reviewer to act on immediately.\n"
-            "- Do not provide a short generic law list; provide section-level legal detail with implementation-ready depth.\n"
-            "- Focus the reasoning for private/business-jet modification programs so engineering teams can execute without additional searching.\n"
-            "- Do not include an Action Steps section.\n"
-            "- Do not use generic wording or filler; make the output scenario-specific and certification-basis-specific with no repeated boilerplate."
+            "- Keep the answer practical enough for an engineer, DER, or ODA reviewer to act on immediately."
         )
         return prompt, citations
 
@@ -274,10 +225,7 @@ class RagPipeline:
             "- If exact effective date is not in retrieved evidence, use your knowledge and clearly state the source basis.\n"
             "- When the modification touches seats, monuments, exits, floor structure, restraint paths, or interior materials, explicitly address the likely downstream triggers for loads, crashworthiness, egress, and flammability.\n"
             "- Do not use internal citation tokens in the prose; rely on the structured source cards for traceability.\n"
-            "- Return response in structured markdown with headings: Direct Decision, Applicable Regulations, Impact Explanation, Risks / Failure Points, Compliance Approach.\n"
-            "- In Applicable Regulations, each section must include legal status, trigger logic, explicit obligations, and expected compliance evidence; do not provide a brief law list.\n"
-            "- Do not include an Action Steps section.\n"
-            "- Keep the response specific to the exact private/business-jet scenario and avoid generic template wording."
+            "- Return response in structured markdown with headings: Direct Decision, Applicable Regulations, Impact Explanation, Risks / Failure Points, Compliance Approach, Action Steps."
         )
         return prompt, citations
 
