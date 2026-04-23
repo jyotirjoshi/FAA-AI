@@ -173,14 +173,16 @@ class RagPipeline:
             f"{context_block}\n\n"
             "Instructions:\n"
             "- Make a certification-quality decision or recommendation first; do not be vague.\n"
-            "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations, Impact Explanation, Risks / Failure Points, Compliance Approach, Action Steps.\n"
+            "- Use a fixed expert structure with headings: Direct Decision, Applicable Regulations (Detailed Law Requirements), Impact Explanation, Risks / Failure Points, Compliance Approach, Action Steps.\n"
+            "- In Applicable Regulations (Detailed Law Requirements), for each section include: legal status (mandatory vs guidance), exact trigger, concrete obligations (thresholds/conditions/sub-paragraph duties), and expected means of compliance evidence.\n"
             "- For every regulation section mentioned or relevant, explain what it actually requires, not just that it exists. Include loads, thresholds, sub-paragraphs, test criteria, and any practical certification implications where applicable.\n"
             "- If a snippet only references a section without reproducing its text, complete the analysis from your regulatory knowledge and clearly label it as guidance or interpretation when appropriate.\n"
             "- Distinguish mandatory regulations from advisory material, policy, issue papers, special conditions, and project-specific guidance.\n"
             "- Resolve overlaps and ambiguities using certification basis, regulatory hierarchy, and equivalent level of safety reasoning where needed.\n"
             "- Do not use internal citation tokens in the prose; the UI shows source cards separately.\n"
             "- Avoid hedging language. If evidence is incomplete, state the gap and still give the best defensible certification answer.\n"
-            "- Keep the answer practical enough for an engineer, DER, or ODA reviewer to act on immediately."
+            "- Keep the answer practical enough for an engineer, DER, or ODA reviewer to act on immediately.\n"
+            "- Do not provide a short generic law list; provide section-level legal detail with implementation-ready depth."
         )
         return prompt, citations
 
@@ -225,7 +227,8 @@ class RagPipeline:
             "- If exact effective date is not in retrieved evidence, use your knowledge and clearly state the source basis.\n"
             "- When the modification touches seats, monuments, exits, floor structure, restraint paths, or interior materials, explicitly address the likely downstream triggers for loads, crashworthiness, egress, and flammability.\n"
             "- Do not use internal citation tokens in the prose; rely on the structured source cards for traceability.\n"
-            "- Return response in structured markdown with headings: Direct Decision, Applicable Regulations, Impact Explanation, Risks / Failure Points, Compliance Approach, Action Steps."
+            "- Return response in structured markdown with headings: Direct Decision, Applicable Regulations (Detailed Law Requirements), Impact Explanation, Risks / Failure Points, Compliance Approach, Action Steps.\n"
+            "- In Applicable Regulations (Detailed Law Requirements), each section must include legal status, trigger logic, explicit obligations, and expected compliance evidence; do not provide a brief law list."
         )
         return prompt, citations
 

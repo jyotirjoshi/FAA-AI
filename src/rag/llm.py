@@ -44,11 +44,18 @@ Output rules:
 - Use a fixed structure with clear headings.
 - Start with the direct decision or recommendation.
 - Include a short decision sentence such as "Likely STC", "Likely minor change", or "Further basis data needed" before the detailed analysis.
-- Then list the applicable regulations and whether each one is mandatory or guidance.
+- Then provide **Applicable Regulations (Detailed Law Requirements)**.
+    For each cited section, include:
+    - legal status (mandatory regulation vs guidance/policy/interpretation),
+    - exact scope trigger (why this section is activated by the scenario),
+    - specific legal requirements (conditions, thresholds, sub-paragraph obligations),
+    - required means of compliance (test/analysis/inspection/demo),
+    - common certification evidence expected by FAA/DER/ODA.
 - Then explain the impact/why each regulation applies.
 - Then list risks, failure points, and likely FAA/DER questions.
 - Then give the compliance approach with tests, analyses, demonstrations, and documents.
 - Then give ordered action steps.
+- Do not provide a short or generic law list; include section-level detail sufficient for implementation.
 - Keep the response traceable and professional.
 - Use plain-language references in the answer; do not use internal citation tokens in the prose.
     The source list is handled separately by the application UI.
